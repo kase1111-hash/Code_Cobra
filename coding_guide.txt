@@ -1,0 +1,40 @@
+Step 1: Analyze the project spec and outline high-level requirements.
+Step 2: Define the system architecture and components.
+Step 3: Set up the development environment and dependencies.
+Step 4: Design database schema and data models.
+Step 5: Implement core business logic modules.
+Step 6: Create API endpoints and route handlers.
+Step 7: Implement authentication and authorization.
+Step 8: Add input validation and data sanitization.
+Step 9: Implement error handling and logging.
+Step 10: Create utility functions and helpers.
+Step 11: Implement caching layer if needed.
+Step 12: Add configuration management.
+Step 13: Create service layer abstractions.
+Step 14: Implement external API integrations.
+Step 15: Add rate limiting and throttling.
+Step 16: Implement background job processing.
+Step 17: Create health check endpoints.
+Step 18: Add metrics and monitoring hooks.
+Step 19: Implement graceful shutdown handling.
+Step 20: Create database migration scripts.
+Step 21: Add seed data and fixtures.
+Step 22: Implement pagination for list endpoints.
+Step 23: Add sorting and filtering capabilities.
+Step 24: Create admin management functions.
+Step 25: Implement audit logging.
+Step 26: Add file upload handling.
+Step 27: Implement email notification system.
+Step 28: Create webhook integration points.
+Step 29: Add versioning to API.
+Step 30: Implement feature flags.
+Step 31: Create CLI management commands.
+Step 32: Add documentation strings.
+Step 33: Implement retry logic for external calls.
+Step 34: Add circuit breaker patterns.
+Step 35: Create integration test stubs.
+Step 36: Implement database connection pooling.
+Step 37: Add request/response compression.
+Step 38: Create deployment configuration.
+Step 39: Implement container orchestration setup.
+Step 40: Final integration testing and deployment preparation.
