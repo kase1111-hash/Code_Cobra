@@ -34,9 +34,9 @@ This guide tracks the implementation progress of Code Cobra based on the technic
 ## Phase 5: Extensions (Optional)
 
 - [x] **Step 16:** Custom Model Hooks (Section 10.1)
-- [ ] **Step 17:** Guide Chaining (Section 10.2)
-- [ ] **Step 18:** Checkpoint/Resume (Section 10.3)
+- [x] **Step 17:** Guide Chaining (Section 10.2)
+- [x] **Step 18:** Checkpoint/Resume (Section 10.3)
 
 ---
 
-*Progress: Phases 1-4 Complete, Phase 5 partially complete*
+*Progress: All Phases Complete*
