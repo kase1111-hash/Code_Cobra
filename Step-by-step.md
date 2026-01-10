@@ -2,7 +2,7 @@
 
 ## Foundation & Planning
 - [x] Review spec sheet & confirm requirements
-- [ ] Define user stories & acceptance criteria
+- [x] Define user stories & acceptance criteria
 - [x] Choose tech stack & dependencies
 - [x] Design architecture (system, data flow, API)
 - [x] Initialize version control (Git)
@@ -26,7 +26,7 @@
 
 ## Testing & Validation
 - [x] Write unit tests
-- [ ] Write integration tests
+- [x] Write integration tests
 - [ ] Write system/acceptance tests
 - [ ] Add regression test suite
 - [ ] Conduct performance testing (load, stress)
@@ -52,7 +52,7 @@
 - [ ] Conduct manual exploratory testing
 - [ ] Peer review / code audit
 - [ ] Run penetration test (internal or 3rd-party)
-- [ ] Document APIs (Swagger / Postman)
+- [x] Document APIs (Swagger / Postman)
 - [x] Create architecture & data flow diagrams
 - [x] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
