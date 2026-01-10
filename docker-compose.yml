@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Ollama LLM server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: code-cobra-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Code Cobra application
+  code-cobra:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: code-cobra-app
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_API=http://ollama:11434/api/generate
+    volumes:
+      - ./output:/app/output
+      - ./guides:/app/guides:ro
+    # Override entrypoint for interactive use
+    # command: ["--spec", "Build a REST API", "--guide", "coding_guide.txt", "--verbose"]
+
+volumes:
+  ollama_data:
+    driver: local

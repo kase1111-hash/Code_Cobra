@@ -1,0 +1,18 @@
+# Development dependencies for Autonomous Coding Ensemble System
+# Install with: pip install -r requirements-dev.txt
+
+# Production dependencies
+-r requirements.txt
+
+# Linting
+flake8>=6.0.0
+
+# Type checking
+mypy>=1.0.0
+
+# Security scanning
+bandit>=1.7.0
+
+# Testing (optional, unittest is built-in)
+pytest>=7.0.0
+pytest-cov>=4.0.0
