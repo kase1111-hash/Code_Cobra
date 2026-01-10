@@ -47,6 +47,54 @@ class Config:
             data = json.load(f)
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+    @classmethod
+    def from_env(cls) -> "Config":
+        """
+        Load configuration from environment variables.
+
+        Supports loading from .env file if python-dotenv is available.
+        Environment variables override defaults.
+        """
+        # Try to load .env file if dotenv is available
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass  # dotenv not installed, use existing env vars
+
+        def get_env(key: str, default: str) -> str:
+            return os.environ.get(key, default)
+
+        def get_env_float(key: str, default: float) -> float:
+            val = os.environ.get(key)
+            return float(val) if val else default
+
+        def get_env_int(key: str, default: int) -> int:
+            val = os.environ.get(key)
+            return int(val) if val else default
+
+        def get_env_bool(key: str, default: bool) -> bool:
+            val = os.environ.get(key, "").lower()
+            if val in ("true", "1", "yes"):
+                return True
+            elif val in ("false", "0", "no"):
+                return False
+            return default
+
+        return cls(
+            ollama_api=get_env("OLLAMA_API", cls.ollama_api),
+            model_a=get_env("MODEL_A", cls.model_a),
+            model_b=get_env("MODEL_B", cls.model_b),
+            model_c=get_env("MODEL_C", cls.model_c),
+            temp_creative=get_env_float("TEMP_CREATIVE", cls.temp_creative),
+            temp_analytical=get_env_float("TEMP_ANALYTICAL", cls.temp_analytical),
+            temp_adversarial=get_env_float("TEMP_ADVERSARIAL", cls.temp_adversarial),
+            max_tokens=get_env_int("MAX_TOKENS", cls.max_tokens),
+            max_iterations=get_env_int("MAX_ITERATIONS", cls.max_iterations),
+            output_file=get_env("OUTPUT_FILE", cls.output_file),
+            verbose=get_env_bool("VERBOSE", cls.verbose)
+        )
+
 
 # =============================================================================
 # Section 4.2: Step Processing Context

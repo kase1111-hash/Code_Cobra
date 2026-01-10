@@ -19,7 +19,7 @@
 - [x] Implement error handling
 - [x] Add general logging
 - [ ] Add error logging (Sentry, ELK, etc.)
-- [ ] Secure configuration (.env or secrets manager)
+- [x] Secure configuration (.env or secrets manager)
 - [x] Add command-line interface (if needed)
 - [ ] Build GUI or frontend (CLI application by design)
 - [ ] Add accessibility & localization support (CLI application)
@@ -27,7 +27,7 @@
 ## Testing & Validation
 - [x] Write unit tests
 - [x] Write integration tests
-- [ ] Write system/acceptance tests
+- [x] Write system/acceptance tests
 - [ ] Add regression test suite
 - [ ] Conduct performance testing (load, stress)
 - [ ] Perform security checks (input, encryption, tokens)
@@ -39,7 +39,7 @@
 ## Build, Deployment & Monitoring
 - [x] Create automated build scripts (Makefile, .bat, shell)
 - [x] Set up CI/CD pipeline (GitHub Actions, Jenkins, etc.)
-- [ ] Configure environment-specific settings (dev/stage/prod)
+- [x] Configure environment-specific settings (dev/stage/prod)
 - [x] Build distributable packages (Dockerfile, zip, exe)
 - [x] Create installer or assembly file (.bat, setup wizard)
 - [x] Implement semantic versioning (v1.0.0)

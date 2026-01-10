@@ -3,3 +3,6 @@
 
 # HTTP client for Ollama API
 requests>=2.28.0
+
+# Environment configuration (optional but recommended)
+python-dotenv>=1.0.0
