@@ -15,6 +15,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
 import requests
@@ -175,6 +176,56 @@ class StateManager:
     def get_context(self) -> str:
         """Get cumulative output as context for next step."""
         return self.cumulative_output
+
+
+# =============================================================================
+# Section 10.3: Checkpoint/Resume
+# =============================================================================
+
+@dataclass
+class Checkpoint:
+    """Checkpoint state for workflow resumption."""
+    guide_file: str
+    spec: str
+    completed_steps: int
+    cumulative_output: str
+    step_outputs: List[str]
+    timestamp: str
+
+    def to_dict(self) -> dict:
+        """Convert checkpoint to dictionary for JSON serialization."""
+        return {
+            "guide_file": self.guide_file,
+            "spec": self.spec,
+            "completed_steps": self.completed_steps,
+            "cumulative_output": self.cumulative_output,
+            "step_outputs": self.step_outputs,
+            "timestamp": self.timestamp
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Checkpoint":
+        """Create checkpoint from dictionary."""
+        return cls(
+            guide_file=data["guide_file"],
+            spec=data["spec"],
+            completed_steps=data["completed_steps"],
+            cumulative_output=data["cumulative_output"],
+            step_outputs=data["step_outputs"],
+            timestamp=data["timestamp"]
+        )
+
+    def save(self, path: str) -> None:
+        """Save checkpoint to file."""
+        with open(path, "w") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, path: str) -> "Checkpoint":
+        """Load checkpoint from file."""
+        with open(path, "r") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
 
 
 # =============================================================================
@@ -379,49 +430,74 @@ class ModelPipeline:
 class WorkflowEngine:
     """Main workflow engine coordinating the ensemble processing."""
 
-    def __init__(self, config: Config, hooks: Optional[PipelineHooks] = None):
+    def __init__(self, config: Config, hooks: Optional[PipelineHooks] = None,
+                 checkpoint_file: Optional[str] = None):
         self.config = config
         self.client = OllamaClient(config)
         self.pipeline = ModelPipeline(config, self.client, hooks)
         self.state = StateManager()
+        self.checkpoint_file = checkpoint_file
 
-    def run(self, spec: str, guide_file: str) -> str:
+    def run(self, spec: str, guide_file: str, resume_from: Optional[str] = None) -> str:
         """
         Run the complete workflow.
 
         Args:
             spec: Project specification (string or file path).
             guide_file: Path to the guide file.
+            resume_from: Optional checkpoint file to resume from.
 
         Returns:
             The cumulative output from all steps.
         """
         # Load specification
+        spec_content = spec
         if os.path.isfile(spec):
             with open(spec, "r") as f:
-                spec = f.read()
+                spec_content = f.read()
 
         # Load guide
         loader = GuideLoader(guide_file)
         steps = loader.load()
 
+        # Resume from checkpoint if provided
+        start_step = 0
+        if resume_from and os.path.exists(resume_from):
+            checkpoint = Checkpoint.load(resume_from)
+            print(f"Resuming from checkpoint: {resume_from}")
+            print(f"  Previously completed: {checkpoint.completed_steps} steps")
+            print(f"  Checkpoint timestamp: {checkpoint.timestamp}")
+
+            # Restore state
+            self.state.cumulative_output = checkpoint.cumulative_output
+            self.state.step_outputs = checkpoint.step_outputs
+            self.state.current_step_index = checkpoint.completed_steps
+            start_step = checkpoint.completed_steps
+
         print(f"Loaded {len(steps)} steps from {guide_file}")
-        print(f"Specification: {spec[:100]}..." if len(spec) > 100 else f"Specification: {spec}")
+        print(f"Specification: {spec_content[:100]}..." if len(spec_content) > 100 else f"Specification: {spec_content}")
+        if start_step > 0:
+            print(f"Starting from step {start_step + 1}")
         print("-" * 60)
 
         # Process each step
-        for i, step_desc in enumerate(steps):
+        for i in range(start_step, len(steps)):
+            step_desc = steps[i]
             print(f"\nProcessing Step {i + 1}/{len(steps)}: {step_desc[:50]}...")
 
             context = StepContext(
                 step_number=i + 1,
                 step_description=step_desc,
-                spec=spec,
+                spec=spec_content,
                 previous_output=self.state.get_context()
             )
 
             step_output = self.pipeline.process(context)
             self.state.add_step_output(step_output)
+
+            # Save checkpoint after each step
+            if self.checkpoint_file:
+                self._save_checkpoint(guide_file, spec_content)
 
             print(f"  Step {i + 1} complete.")
 
@@ -434,6 +510,20 @@ class WorkflowEngine:
 
         return self.state.cumulative_output
 
+    def _save_checkpoint(self, guide_file: str, spec: str) -> None:
+        """Save current state to checkpoint file."""
+        checkpoint = Checkpoint(
+            guide_file=guide_file,
+            spec=spec,
+            completed_steps=self.state.current_step_index,
+            cumulative_output=self.state.cumulative_output,
+            step_outputs=self.state.step_outputs,
+            timestamp=datetime.now().isoformat()
+        )
+        checkpoint.save(self.checkpoint_file)
+        if self.config.verbose:
+            print(f"  Checkpoint saved: {self.checkpoint_file}")
+
     def dry_run(self, guide_file: str) -> None:
         """Parse and validate guide without running models."""
         loader = GuideLoader(guide_file)
@@ -443,6 +533,111 @@ class WorkflowEngine:
         for i, step in enumerate(steps, 1):
             print(f"  Step {i}: {step}")
         print("\nGuide validation successful.")
+
+
+# =============================================================================
+# Section 10.2: Guide Chaining
+# =============================================================================
+
+class GuideChain:
+    """
+    Execute multiple guides sequentially.
+
+    Output of guide N becomes input context for guide N+1.
+    """
+
+    def __init__(self, config: Config, hooks: Optional[PipelineHooks] = None,
+                 checkpoint_dir: Optional[str] = None):
+        self.config = config
+        self.hooks = hooks
+        self.checkpoint_dir = checkpoint_dir
+        self.chain_output: str = ""
+
+    def run(self, spec: str, guide_files: List[str]) -> str:
+        """
+        Run multiple guides in sequence.
+
+        Args:
+            spec: Project specification (string or file path).
+            guide_files: List of guide file paths to execute in order.
+
+        Returns:
+            The cumulative output from all guides.
+        """
+        print(f"Starting guide chain with {len(guide_files)} guides")
+        print(f"Chain: {' -> '.join(guide_files)}")
+        print("=" * 60)
+
+        cumulative_context = ""
+
+        for idx, guide_file in enumerate(guide_files):
+            print(f"\n[Chain {idx + 1}/{len(guide_files)}] Processing: {guide_file}")
+            print("=" * 60)
+
+            # Set up checkpoint file for this guide
+            checkpoint_file = None
+            if self.checkpoint_dir:
+                os.makedirs(self.checkpoint_dir, exist_ok=True)
+                checkpoint_file = os.path.join(
+                    self.checkpoint_dir,
+                    f"checkpoint_{idx}_{os.path.basename(guide_file)}.json"
+                )
+
+            # Create engine with accumulated context
+            engine_config = Config(
+                ollama_api=self.config.ollama_api,
+                model_a=self.config.model_a,
+                model_b=self.config.model_b,
+                model_c=self.config.model_c,
+                temp_creative=self.config.temp_creative,
+                temp_analytical=self.config.temp_analytical,
+                temp_adversarial=self.config.temp_adversarial,
+                max_tokens=self.config.max_tokens,
+                max_iterations=self.config.max_iterations,
+                output_file=f"output_{idx}_{os.path.basename(guide_file).replace('.txt', '')}.txt",
+                verbose=self.config.verbose
+            )
+
+            engine = WorkflowEngine(engine_config, self.hooks, checkpoint_file)
+
+            # Prepend accumulated context to spec
+            enhanced_spec = spec
+            if cumulative_context:
+                enhanced_spec = f"Previous context:\n{cumulative_context}\n\nCurrent spec:\n{spec}"
+
+            # Run this guide
+            output = engine.run(enhanced_spec, guide_file)
+
+            # Accumulate output for next guide
+            cumulative_context += f"\n\n--- Output from {guide_file} ---\n{output}"
+
+        # Write final combined output
+        self.chain_output = cumulative_context
+        final_output_file = self.config.output_file
+        with open(final_output_file, "w") as f:
+            f.write(cumulative_context)
+
+        print("\n" + "=" * 60)
+        print(f"Guide chain complete. Final output: {final_output_file}")
+
+        return cumulative_context
+
+    def dry_run(self, guide_files: List[str]) -> None:
+        """Validate all guides in the chain without running models."""
+        print(f"Dry run - Validating {len(guide_files)} guides in chain")
+        print("-" * 60)
+
+        total_steps = 0
+        for idx, guide_file in enumerate(guide_files):
+            loader = GuideLoader(guide_file)
+            steps = loader.load()
+            total_steps += len(steps)
+            print(f"\n[{idx + 1}] {guide_file}: {len(steps)} steps")
+            for i, step in enumerate(steps, 1):
+                print(f"    Step {i}: {step[:60]}...")
+
+        print("-" * 60)
+        print(f"Chain validation successful. Total steps: {total_steps}")
 
 
 # =============================================================================
@@ -491,6 +686,29 @@ def parse_args() -> argparse.Namespace:
         help="Parse guide and validate without running models"
     )
 
+    # Checkpoint/Resume arguments
+    parser.add_argument(
+        "--checkpoint",
+        help="Path to checkpoint file for saving progress after each step"
+    )
+
+    parser.add_argument(
+        "--resume",
+        help="Path to checkpoint file to resume from"
+    )
+
+    # Guide Chaining arguments
+    parser.add_argument(
+        "--chain",
+        nargs="+",
+        help="Chain multiple guides: --chain guide1.txt guide2.txt guide3.txt"
+    )
+
+    parser.add_argument(
+        "--checkpoint-dir",
+        help="Directory to store checkpoints when using guide chaining"
+    )
+
     return parser.parse_args()
 
 
@@ -508,17 +726,31 @@ def main() -> int:
     config.output_file = args.output
     config.verbose = args.verbose
 
-    # Create workflow engine
-    engine = WorkflowEngine(config)
-
     try:
-        if args.dry_run:
-            engine.dry_run(args.guide)
+        # Guide Chaining mode
+        if args.chain:
+            chain = GuideChain(config, checkpoint_dir=args.checkpoint_dir)
+
+            if args.dry_run:
+                chain.dry_run(args.chain)
+            else:
+                if not args.spec:
+                    print("Error: --spec is required unless using --dry-run")
+                    return 1
+                chain.run(args.spec, args.chain)
+
+        # Single guide mode
         else:
-            if not args.spec:
-                print("Error: --spec is required unless using --dry-run")
-                return 1
-            engine.run(args.spec, args.guide)
+            engine = WorkflowEngine(config, checkpoint_file=args.checkpoint)
+
+            if args.dry_run:
+                engine.dry_run(args.guide)
+            else:
+                if not args.spec:
+                    print("Error: --spec is required unless using --dry-run")
+                    return 1
+                engine.run(args.spec, args.guide, resume_from=args.resume)
+
     except FileNotFoundError as e:
         print(f"Error: {e}")
         return 1
