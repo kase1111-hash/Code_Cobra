@@ -45,8 +45,8 @@
 - [x] Implement semantic versioning (v1.0.0)
 - [x] Automate deployment process
 - [x] Add telemetry & metrics collection
-- [ ] Monitor uptime, errors, and performance
-- [ ] Add rollback & recovery mechanisms
+- [x] Monitor uptime, errors, and performance
+- [x] Add rollback & recovery mechanisms
 
 ## Finalization & Compliance
 - [ ] Conduct manual exploratory testing
