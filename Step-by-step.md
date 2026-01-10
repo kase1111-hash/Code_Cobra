@@ -7,7 +7,7 @@
 - [x] Design architecture (system, data flow, API)
 - [x] Initialize version control (Git)
 - [x] Set up project structure (src/, tests/, docs/)
-- [ ] Define coding conventions & style guide
+- [x] Define coding conventions & style guide
 - [x] Create dependency manifest (package.json, requirements.txt)
 - [x] Configure environment management (Docker, venv, etc.)
 - [x] Write initial README.md
@@ -53,8 +53,8 @@
 - [ ] Peer review / code audit
 - [ ] Run penetration test (internal or 3rd-party)
 - [ ] Document APIs (Swagger / Postman)
-- [ ] Create architecture & data flow diagrams
-- [ ] Finalize user documentation (README, FAQ, troubleshooting)
+- [x] Create architecture & data flow diagrams
+- [x] Finalize user documentation (README, FAQ, troubleshooting)
 - [x] Add license file
 - [x] Write changelog
 - [ ] Perform compliance review (GDPR, HIPAA, etc.)
