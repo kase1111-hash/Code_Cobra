@@ -18,7 +18,7 @@
 - [x] Add input validation & sanitation
 - [x] Implement error handling
 - [x] Add general logging
-- [ ] Add error logging (Sentry, ELK, etc.)
+- [x] Add error logging (Sentry, ELK, etc.)
 - [x] Secure configuration (.env or secrets manager)
 - [x] Add command-line interface (if needed)
 - [ ] Build GUI or frontend (CLI application by design)
@@ -28,11 +28,11 @@
 - [x] Write unit tests
 - [x] Write integration tests
 - [x] Write system/acceptance tests
-- [ ] Add regression test suite
-- [ ] Conduct performance testing (load, stress)
-- [ ] Perform security checks (input, encryption, tokens)
-- [ ] Perform exploit testing (SQLi, XSS, overflow)
-- [ ] Check for backdoors & unauthorized access
+- [x] Add regression test suite
+- [x] Conduct performance testing (load, stress)
+- [x] Perform security checks (input, encryption, tokens)
+- [x] Perform exploit testing (SQLi, XSS, overflow)
+- [x] Check for backdoors & unauthorized access
 - [x] Run static analysis (lint, type check, vuln scan)
 - [ ] Run dynamic analysis (fuzzing, runtime behavior)
 

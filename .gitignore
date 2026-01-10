@@ -35,6 +35,12 @@ env/
 # Output files
 final_output.txt
 *.log
+regression_report.json
+
+# Environment files (secrets)
+.env
+.env.local
+.env.*.local
 
 # OS
 .DS_Store
