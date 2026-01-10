@@ -1,0 +1,539 @@
+#!/usr/bin/env python3
+"""
+Autonomous Coding Ensemble System
+A multi-agent AI coding system for autonomous code generation and security hardening.
+
+This local LLM ensemble leverages natural language programming principles to transform
+prose-first specifications into production-ready code through AI-powered code review
+and automated vulnerability scanning.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import time
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional
+
+import requests
+
+
+# =============================================================================
+# Section 4.1: Configuration Object
+# =============================================================================
+
+@dataclass
+class Config:
+    """Configuration for the autonomous ensemble system."""
+    ollama_api: str = "http://localhost:11434/api/generate"
+    model_a: str = "qwen2.5-coder:7b"      # Creative model
+    model_b: str = "deepseek-coder-v2:16b"  # Analytical model
+    model_c: str = "codestral:22b"          # Adversarial model
+    temp_creative: float = 0.8
+    temp_analytical: float = 0.3
+    temp_adversarial: float = 0.7
+    max_tokens: int = 2000
+    max_iterations: int = 3
+    output_file: str = "final_output.txt"
+    verbose: bool = False
+
+    @classmethod
+    def from_json(cls, path: str) -> "Config":
+        """Load configuration from a JSON file."""
+        with open(path, "r") as f:
+            data = json.load(f)
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
+# =============================================================================
+# Section 4.2: Step Processing Context
+# =============================================================================
+
+@dataclass
+class StepContext:
+    """Context for processing a single step."""
+    step_number: int
+    step_description: str
+    spec: str
+    previous_output: str = ""
+    draft: str = ""
+    corrected: str = ""
+    secured: str = ""
+
+
+# =============================================================================
+# Section 4.3: API Request Payload
+# =============================================================================
+
+@dataclass
+class OllamaRequest:
+    """Request payload for Ollama API."""
+    model: str
+    prompt: str
+    temperature: float
+    max_tokens: int = 2000
+    stream: bool = False
+
+    def to_dict(self) -> dict:
+        """Convert to API request dictionary."""
+        return {
+            "model": self.model,
+            "prompt": self.prompt,
+            "options": {"temperature": self.temperature},
+            "stream": self.stream,
+            "max_tokens": self.max_tokens
+        }
+
+
+# =============================================================================
+# Section 3.1: Guide Loader
+# =============================================================================
+
+class GuideLoader:
+    """
+    Loads and parses guide files containing step-by-step instructions.
+
+    Guide File Format:
+        Step 1: [Action description]
+        Step 2: [Action description]
+        ...
+        Step N: [Action description]
+    """
+
+    STEP_PATTERN = re.compile(r"^Step\s+(\d+):\s*(.+)$", re.IGNORECASE)
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+        self.steps: List[str] = []
+
+    def load(self) -> List[str]:
+        """
+        Load and parse the guide file.
+
+        Returns:
+            Ordered list of step descriptions.
+
+        Raises:
+            FileNotFoundError: If guide file doesn't exist.
+            ValueError: If no valid steps found in guide.
+        """
+        if not os.path.exists(self.file_path):
+            available = self._list_available_guides()
+            raise FileNotFoundError(
+                f"Guide file not found: {self.file_path}\n"
+                f"Available guides: {', '.join(available) if available else 'none'}"
+            )
+
+        steps_dict = {}
+        with open(self.file_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                match = self.STEP_PATTERN.match(line)
+                if match:
+                    step_num = int(match.group(1))
+                    step_desc = match.group(2).strip()
+                    steps_dict[step_num] = step_desc
+
+        if not steps_dict:
+            raise ValueError(
+                f"No valid steps found in {self.file_path}\n"
+                "Expected format: 'Step N: [description]'"
+            )
+
+        # Return steps in order
+        self.steps = [steps_dict[i] for i in sorted(steps_dict.keys())]
+        return self.steps
+
+    def _list_available_guides(self) -> List[str]:
+        """List available guide files in the current directory."""
+        directory = os.path.dirname(self.file_path) or "."
+        if os.path.isdir(directory):
+            return [f for f in os.listdir(directory) if f.endswith("_guide.txt")]
+        return []
+
+
+# =============================================================================
+# Section 3.4: State Manager
+# =============================================================================
+
+@dataclass
+class StateManager:
+    """Manages workflow state across step processing."""
+    cumulative_output: str = ""
+    current_step_index: int = 0
+    step_outputs: List[str] = field(default_factory=list)
+
+    def add_step_output(self, output: str) -> None:
+        """Add output from a completed step."""
+        self.step_outputs.append(output)
+        formatted = f"\n--- Step {self.current_step_index + 1} Output ---\n{output}\n"
+        self.cumulative_output += formatted
+        self.current_step_index += 1
+
+    def get_context(self) -> str:
+        """Get cumulative output as context for next step."""
+        return self.cumulative_output
+
+
+# =============================================================================
+# Section 10.1: Custom Model Hooks
+# =============================================================================
+
+@dataclass
+class PipelineHooks:
+    """Optional hooks for custom processing between pipeline stages."""
+    post_draft: Optional[Callable[[str], str]] = None
+    post_correction: Optional[Callable[[str], str]] = None
+    post_security: Optional[Callable[[str], str]] = None
+
+
+# =============================================================================
+# Ollama API Client
+# =============================================================================
+
+class OllamaClient:
+    """Client for interacting with Ollama API."""
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.retry_count = 3
+        self.retry_delay = 1.0
+
+    def query(self, request: OllamaRequest) -> str:
+        """
+        Send a query to the Ollama API.
+
+        Args:
+            request: The OllamaRequest to send.
+
+        Returns:
+            The model's response text.
+
+        Raises:
+            ConnectionError: If unable to connect after retries.
+        """
+        for attempt in range(self.retry_count):
+            try:
+                response = requests.post(
+                    self.config.ollama_api,
+                    json=request.to_dict(),
+                    timeout=120
+                )
+                response.raise_for_status()
+                return response.json().get("response", "")
+            except requests.exceptions.ConnectionError as e:
+                if attempt < self.retry_count - 1:
+                    time.sleep(self.retry_delay * (2 ** attempt))
+                else:
+                    raise ConnectionError(
+                        f"Failed to connect to Ollama API at {self.config.ollama_api} "
+                        f"after {self.retry_count} attempts: {e}"
+                    )
+            except requests.exceptions.Timeout:
+                if attempt < self.retry_count - 1:
+                    time.sleep(self.retry_delay)
+                else:
+                    raise TimeoutError(
+                        f"Timeout waiting for model response after {self.retry_count} attempts"
+                    )
+        return ""
+
+
+# =============================================================================
+# Section 3.2 & 3.3: Model Pipeline & Iteration Controller
+# =============================================================================
+
+class ModelPipeline:
+    """
+    Three-stage model pipeline for code processing.
+
+    Model A (Creative): Generate initial draft
+    Model B (Analytical): Error correction with iteration
+    Model C (Adversarial): Security hardening with iteration
+    """
+
+    def __init__(self, config: Config, client: OllamaClient, hooks: Optional[PipelineHooks] = None):
+        self.config = config
+        self.client = client
+        self.hooks = hooks or PipelineHooks()
+
+    def process(self, context: StepContext) -> str:
+        """
+        Process a step through all three pipeline stages.
+
+        Args:
+            context: The StepContext containing step information.
+
+        Returns:
+            The final secured output.
+        """
+        # Stage 1: Creative Draft (Model A)
+        context.draft = self._creative_draft(context)
+        if self.hooks.post_draft:
+            context.draft = self.hooks.post_draft(context.draft)
+
+        # Stage 2: Error Correction (Model B) - Iterative
+        context.corrected = self._error_correction(context)
+        if self.hooks.post_correction:
+            context.corrected = self.hooks.post_correction(context.corrected)
+
+        # Stage 3: Security Hardening (Model C) - Iterative
+        context.secured = self._security_hardening(context)
+        if self.hooks.post_security:
+            context.secured = self.hooks.post_security(context.secured)
+
+        return context.secured
+
+    def _creative_draft(self, context: StepContext) -> str:
+        """Generate creative draft using Model A."""
+        prompt = self._build_creative_prompt(context)
+        request = OllamaRequest(
+            model=self.config.model_a,
+            prompt=prompt,
+            temperature=self.config.temp_creative,
+            max_tokens=self.config.max_tokens
+        )
+        if self.config.verbose:
+            print(f"  [Model A] Generating creative draft...")
+        return self.client.query(request)
+
+    def _error_correction(self, context: StepContext) -> str:
+        """Iteratively correct errors using Model B."""
+        current = context.draft
+        for i in range(self.config.max_iterations):
+            prompt = self._build_correction_prompt(context, current)
+            request = OllamaRequest(
+                model=self.config.model_b,
+                prompt=prompt,
+                temperature=self.config.temp_analytical,
+                max_tokens=self.config.max_tokens
+            )
+            if self.config.verbose:
+                print(f"  [Model B] Correction iteration {i + 1}...")
+            new_output = self.client.query(request)
+
+            # Convergence check
+            if new_output == current:
+                if self.config.verbose:
+                    print(f"  [Model B] Converged at iteration {i + 1}")
+                break
+            current = new_output
+        return current
+
+    def _security_hardening(self, context: StepContext) -> str:
+        """Iteratively harden security using Model C."""
+        current = context.corrected
+        for i in range(self.config.max_iterations):
+            prompt = self._build_security_prompt(context, current)
+            request = OllamaRequest(
+                model=self.config.model_c,
+                prompt=prompt,
+                temperature=self.config.temp_adversarial,
+                max_tokens=self.config.max_tokens
+            )
+            if self.config.verbose:
+                print(f"  [Model C] Security iteration {i + 1}...")
+            new_output = self.client.query(request)
+
+            # Convergence check
+            if new_output == current:
+                if self.config.verbose:
+                    print(f"  [Model C] Converged at iteration {i + 1}")
+                break
+            current = new_output
+        return current
+
+    def _build_creative_prompt(self, context: StepContext) -> str:
+        """Build prompt for Model A (Creative Draft)."""
+        return (
+            f"{context.previous_output}\n"
+            f"Apply this step to the spec '{context.spec}': {context.step_description}\n"
+            f"Generate a creative draft of code or plan."
+        )
+
+    def _build_correction_prompt(self, context: StepContext, current_output: str) -> str:
+        """Build prompt for Model B (Error Correction)."""
+        return (
+            f"{context.previous_output}\n"
+            f"Strictly analyze this for errors, bugs, inefficiencies:\n"
+            f"{current_output}\n"
+            f"Correct without adding new features."
+        )
+
+    def _build_security_prompt(self, context: StepContext, current_output: str) -> str:
+        """Build prompt for Model C (Security Scan)."""
+        return (
+            f"{context.previous_output}\n"
+            f"Act as a hacker: Identify security flaws in the following and suggest fixes:\n"
+            f"{current_output}\n"
+            f"List vulnerabilities and provide corrected code."
+        )
+
+
+# =============================================================================
+# Section 5: Processing Logic - Workflow Engine
+# =============================================================================
+
+class WorkflowEngine:
+    """Main workflow engine coordinating the ensemble processing."""
+
+    def __init__(self, config: Config, hooks: Optional[PipelineHooks] = None):
+        self.config = config
+        self.client = OllamaClient(config)
+        self.pipeline = ModelPipeline(config, self.client, hooks)
+        self.state = StateManager()
+
+    def run(self, spec: str, guide_file: str) -> str:
+        """
+        Run the complete workflow.
+
+        Args:
+            spec: Project specification (string or file path).
+            guide_file: Path to the guide file.
+
+        Returns:
+            The cumulative output from all steps.
+        """
+        # Load specification
+        if os.path.isfile(spec):
+            with open(spec, "r") as f:
+                spec = f.read()
+
+        # Load guide
+        loader = GuideLoader(guide_file)
+        steps = loader.load()
+
+        print(f"Loaded {len(steps)} steps from {guide_file}")
+        print(f"Specification: {spec[:100]}..." if len(spec) > 100 else f"Specification: {spec}")
+        print("-" * 60)
+
+        # Process each step
+        for i, step_desc in enumerate(steps):
+            print(f"\nProcessing Step {i + 1}/{len(steps)}: {step_desc[:50]}...")
+
+            context = StepContext(
+                step_number=i + 1,
+                step_description=step_desc,
+                spec=spec,
+                previous_output=self.state.get_context()
+            )
+
+            step_output = self.pipeline.process(context)
+            self.state.add_step_output(step_output)
+
+            print(f"  Step {i + 1} complete.")
+
+        # Write output
+        with open(self.config.output_file, "w") as f:
+            f.write(self.state.cumulative_output)
+
+        print("-" * 60)
+        print(f"Workflow complete. Output written to {self.config.output_file}")
+
+        return self.state.cumulative_output
+
+    def dry_run(self, guide_file: str) -> None:
+        """Parse and validate guide without running models."""
+        loader = GuideLoader(guide_file)
+        steps = loader.load()
+
+        print(f"Dry run - Validated {len(steps)} steps:")
+        for i, step in enumerate(steps, 1):
+            print(f"  Step {i}: {step}")
+        print("\nGuide validation successful.")
+
+
+# =============================================================================
+# Section 9: CLI Interface
+# =============================================================================
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        prog="autonomous_ensemble.py",
+        description="Autonomous Coding Ensemble System - Multi-agent AI for code generation and security hardening"
+    )
+
+    parser.add_argument(
+        "--spec",
+        required=False,
+        help="Project specification (string or file path)"
+    )
+
+    parser.add_argument(
+        "--guide",
+        default="coding_guide.txt",
+        help="Path to guide file (default: coding_guide.txt)"
+    )
+
+    parser.add_argument(
+        "--output",
+        default="final_output.txt",
+        help="Output file path (default: final_output.txt)"
+    )
+
+    parser.add_argument(
+        "--config",
+        help="Optional JSON config file for model overrides"
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable detailed logging"
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse guide and validate without running models"
+    )
+
+    return parser.parse_args()
+
+
+def main() -> int:
+    """Main entry point."""
+    args = parse_args()
+
+    # Load configuration
+    if args.config:
+        config = Config.from_json(args.config)
+    else:
+        config = Config()
+
+    # Apply CLI overrides
+    config.output_file = args.output
+    config.verbose = args.verbose
+
+    # Create workflow engine
+    engine = WorkflowEngine(config)
+
+    try:
+        if args.dry_run:
+            engine.dry_run(args.guide)
+        else:
+            if not args.spec:
+                print("Error: --spec is required unless using --dry-run")
+                return 1
+            engine.run(args.spec, args.guide)
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return 1
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+    except ConnectionError as e:
+        print(f"Connection Error: {e}")
+        return 1
+    except TimeoutError as e:
+        print(f"Timeout Error: {e}")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,5 @@
+# Autonomous Coding Ensemble System Dependencies
+# Python ≥3.8 required
+
+# HTTP client for Ollama API
+requests>=2.28.0

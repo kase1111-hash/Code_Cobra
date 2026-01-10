@@ -1,0 +1,40 @@
+Step 1: Run syntax checks and fix compilation errors.
+Step 2: Execute unit tests and debug failures.
+Step 3: Scan for common vulnerabilities (SQL injection, XSS, CSRF).
+Step 4: Profile memory usage and fix leaks.
+Step 5: Optimize hot paths and reduce complexity.
+Step 6: Review and fix race conditions.
+Step 7: Validate error handling coverage.
+Step 8: Check for proper resource cleanup.
+Step 9: Audit authentication mechanisms.
+Step 10: Review authorization logic.
+Step 11: Validate input sanitization.
+Step 12: Check for hardcoded secrets.
+Step 13: Review logging for sensitive data exposure.
+Step 14: Validate SSL/TLS configuration.
+Step 15: Check for insecure deserialization.
+Step 16: Review file handling security.
+Step 17: Audit external API integrations.
+Step 18: Check for command injection vulnerabilities.
+Step 19: Review path traversal protections.
+Step 20: Validate CORS configuration.
+Step 21: Check session management security.
+Step 22: Review cookie security settings.
+Step 23: Audit database query security.
+Step 24: Check for information disclosure.
+Step 25: Review dependency versions for CVEs.
+Step 26: Validate rate limiting effectiveness.
+Step 27: Check for denial of service vectors.
+Step 28: Review cryptographic implementations.
+Step 29: Audit access control lists.
+Step 30: Check for privilege escalation paths.
+Step 31: Review third-party integration security.
+Step 32: Validate backup and recovery procedures.
+Step 33: Check for secure defaults.
+Step 34: Review error messages for information leakage.
+Step 35: Audit webhook security.
+Step 36: Check for replay attack vulnerabilities.
+Step 37: Review API key management.
+Step 38: Validate data encryption at rest.
+Step 39: Check network security configuration.
+Step 40: Final security audit and penetration test review.
