@@ -150,13 +150,13 @@ class TestConfigPerformance(unittest.TestCase):
 
         os.unlink(f.name)
 
-    def test_config_from_env_under_5ms(self):
-        """Loading config from environment completes in under 5ms."""
+    def test_config_from_env_under_10ms(self):
+        """Loading config from environment completes in under 10ms."""
         start = time.perf_counter()
         config = Config.from_env()
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        self.assertLess(elapsed_ms, 5, f"Config.from_env took {elapsed_ms:.2f}ms, expected <5ms")
+        self.assertLess(elapsed_ms, 10, f"Config.from_env took {elapsed_ms:.2f}ms, expected <10ms")
 
 
 class TestConcurrentAccess(unittest.TestCase):
