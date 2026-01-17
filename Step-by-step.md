@@ -34,7 +34,7 @@
 - [x] Perform exploit testing (SQLi, XSS, overflow)
 - [x] Check for backdoors & unauthorized access
 - [x] Run static analysis (lint, type check, vuln scan)
-- [ ] Run dynamic analysis (fuzzing, runtime behavior)
+- [x] Run dynamic analysis (fuzzing, runtime behavior)
 
 ## Build, Deployment & Monitoring
 - [x] Create automated build scripts (Makefile, .bat, shell)
@@ -43,10 +43,10 @@
 - [x] Build distributable packages (Dockerfile, zip, exe)
 - [x] Create installer or assembly file (.bat, setup wizard)
 - [x] Implement semantic versioning (v1.0.0)
-- [ ] Automate deployment process
-- [ ] Add telemetry & metrics collection
-- [ ] Monitor uptime, errors, and performance
-- [ ] Add rollback & recovery mechanisms
+- [x] Automate deployment process
+- [x] Add telemetry & metrics collection
+- [x] Monitor uptime, errors, and performance
+- [x] Add rollback & recovery mechanisms
 
 ## Finalization & Compliance
 - [ ] Conduct manual exploratory testing
