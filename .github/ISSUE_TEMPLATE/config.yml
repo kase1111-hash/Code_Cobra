@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/kase1111-hash/Code_Cobra#readme
+    about: Check the documentation before opening an issue
+  - name: FAQ
+    url: https://github.com/kase1111-hash/Code_Cobra/blob/main/docs/FAQ.md
+    about: Find answers to frequently asked questions
+  - name: Security Vulnerabilities
+    url: https://github.com/kase1111-hash/Code_Cobra/blob/main/SECURITY.md
+    about: Report security vulnerabilities privately (do not open a public issue)
