@@ -67,11 +67,11 @@ class Config:
 
         def get_env_float(key: str, default: float) -> float:
             val = os.environ.get(key)
-            return float(val) if val else default
+            return float(val) if val is not None else default
 
         def get_env_int(key: str, default: int) -> int:
             val = os.environ.get(key)
-            return int(val) if val else default
+            return int(val) if val is not None else default
 
         def get_env_bool(key: str, default: bool) -> bool:
             val = os.environ.get(key, "").lower()
@@ -337,7 +337,8 @@ class OllamaClient:
                     raise TimeoutError(
                         f"Timeout waiting for model response after {self.retry_count} attempts"
                     )
-        return ""
+        # All code paths either return or raise, this is unreachable
+        raise RuntimeError("Unexpected state: retry loop completed without return or exception")
 
 
 # =============================================================================
