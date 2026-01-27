@@ -10,15 +10,40 @@ and automated vulnerability scanning.
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
 import requests
+
+# Import optional monitoring modules
+try:
+    from logging_config import setup_logging, get_logger
+    LOGGING_AVAILABLE = True
+except ImportError:
+    LOGGING_AVAILABLE = False
+    logging.basicConfig(level=logging.INFO)
+    def get_logger(name: str) -> logging.Logger:
+        return logging.getLogger(name)
+
+try:
+    from telemetry import get_collector, time_operation
+    TELEMETRY_AVAILABLE = True
+except ImportError:
+    TELEMETRY_AVAILABLE = False
+    def get_collector():
+        return None
+    def time_operation(name, labels=None):
+        from contextlib import nullcontext
+        return nullcontext()
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -130,9 +155,11 @@ class OllamaRequest:
         return {
             "model": self.model,
             "prompt": self.prompt,
-            "options": {"temperature": self.temperature},
-            "stream": self.stream,
-            "max_tokens": self.max_tokens
+            "options": {
+                "temperature": self.temperature,
+                "num_predict": self.max_tokens
+            },
+            "stream": self.stream
         }
 
 
@@ -176,14 +203,24 @@ class GuideLoader:
             )
 
         steps_dict = {}
+        duplicates = []
         with open(self.file_path, "r") as f:
-            for line in f:
+            for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 match = self.STEP_PATTERN.match(line)
                 if match:
                     step_num = int(match.group(1))
                     step_desc = match.group(2).strip()
+                    if step_num in steps_dict:
+                        duplicates.append((step_num, line_num))
                     steps_dict[step_num] = step_desc
+
+        if duplicates:
+            dup_info = ", ".join(f"Step {n} (line {ln})" for n, ln in duplicates)
+            raise ValueError(
+                f"Duplicate step numbers found in {self.file_path}: {dup_info}\n"
+                "Each step number must be unique."
+            )
 
         if not steps_dict:
             raise ValueError(
@@ -253,7 +290,38 @@ class Checkpoint:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Checkpoint":
-        """Create checkpoint from dictionary."""
+        """Create checkpoint from dictionary.
+
+        Args:
+            data: Dictionary containing checkpoint data.
+
+        Returns:
+            Checkpoint instance.
+
+        Raises:
+            ValueError: If required fields are missing or invalid.
+        """
+        required_fields = ["guide_file", "spec", "completed_steps",
+                          "cumulative_output", "step_outputs", "timestamp"]
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            raise ValueError(
+                f"Invalid checkpoint data: missing required fields: {', '.join(missing)}\n"
+                "Checkpoint file may be corrupted or from an incompatible version."
+            )
+
+        # Validate types
+        if not isinstance(data["completed_steps"], int):
+            raise ValueError(
+                f"Invalid checkpoint data: 'completed_steps' must be an integer, "
+                f"got {type(data['completed_steps']).__name__}"
+            )
+        if not isinstance(data["step_outputs"], list):
+            raise ValueError(
+                f"Invalid checkpoint data: 'step_outputs' must be a list, "
+                f"got {type(data['step_outputs']).__name__}"
+            )
+
         return cls(
             guide_file=data["guide_file"],
             spec=data["spec"],
@@ -312,7 +380,9 @@ class OllamaClient:
 
         Raises:
             ConnectionError: If unable to connect after retries.
+            RuntimeError: If server returns non-retryable error.
         """
+        last_error = None
         for attempt in range(self.retry_count):
             try:
                 response = requests.post(
@@ -323,6 +393,8 @@ class OllamaClient:
                 response.raise_for_status()
                 return response.json().get("response", "")
             except requests.exceptions.ConnectionError as e:
+                last_error = e
+                logger.warning(f"Connection error (attempt {attempt + 1}/{self.retry_count}): {e}")
                 if attempt < self.retry_count - 1:
                     time.sleep(self.retry_delay * (2 ** attempt))
                 else:
@@ -330,15 +402,30 @@ class OllamaClient:
                         f"Failed to connect to Ollama API at {self.config.ollama_api} "
                         f"after {self.retry_count} attempts: {e}"
                     )
-            except requests.exceptions.Timeout:
+            except requests.exceptions.Timeout as e:
+                last_error = e
+                logger.warning(f"Timeout (attempt {attempt + 1}/{self.retry_count})")
                 if attempt < self.retry_count - 1:
                     time.sleep(self.retry_delay)
                 else:
                     raise TimeoutError(
                         f"Timeout waiting for model response after {self.retry_count} attempts"
                     )
+            except requests.exceptions.HTTPError as e:
+                last_error = e
+                status_code = e.response.status_code if e.response is not None else 0
+                # Retry on 5xx server errors
+                if 500 <= status_code < 600:
+                    logger.warning(f"Server error {status_code} (attempt {attempt + 1}/{self.retry_count})")
+                    if attempt < self.retry_count - 1:
+                        time.sleep(self.retry_delay * (2 ** attempt))
+                        continue
+                # Don't retry on 4xx client errors
+                raise RuntimeError(
+                    f"Ollama API error (HTTP {status_code}): {e}"
+                )
         # All code paths either return or raise, this is unreachable
-        raise RuntimeError("Unexpected state: retry loop completed without return or exception")
+        raise RuntimeError(f"Unexpected state: retry loop completed without return or exception. Last error: {last_error}")
 
 
 # =============================================================================
@@ -499,6 +586,10 @@ class WorkflowEngine:
         Returns:
             The cumulative output from all steps.
         """
+        # Initialize telemetry
+        workflow_id = f"wf-{uuid.uuid4().hex[:8]}"
+        collector = get_collector()
+
         # Load specification
         spec_content = spec
         if os.path.isfile(spec):
@@ -508,6 +599,11 @@ class WorkflowEngine:
         # Load guide
         loader = GuideLoader(guide_file)
         steps = loader.load()
+
+        # Start workflow telemetry
+        if collector and TELEMETRY_AVAILABLE:
+            collector.start_workflow(workflow_id, len(steps))
+        logger.info(f"Starting workflow {workflow_id} with {len(steps)} steps")
 
         # Resume from checkpoint if provided
         start_step = 0
@@ -533,6 +629,7 @@ class WorkflowEngine:
         for i in range(start_step, len(steps)):
             step_desc = steps[i]
             print(f"\nProcessing Step {i + 1}/{len(steps)}: {step_desc[:50]}...")
+            logger.debug(f"Processing step {i + 1}: {step_desc}")
 
             context = StepContext(
                 step_number=i + 1,
@@ -541,8 +638,20 @@ class WorkflowEngine:
                 previous_output=self.state.get_context()
             )
 
-            step_output = self.pipeline.process(context)
-            self.state.add_step_output(step_output)
+            try:
+                with time_operation("step_processing"):
+                    step_output = self.pipeline.process(context)
+                self.state.add_step_output(step_output)
+
+                # Record step completion in telemetry
+                if collector and TELEMETRY_AVAILABLE:
+                    collector.complete_step(workflow_id, "pipeline", tokens=len(step_output))
+
+            except Exception as e:
+                logger.error(f"Step {i + 1} failed: {e}")
+                if collector and TELEMETRY_AVAILABLE:
+                    collector.fail_step(workflow_id, str(e))
+                raise
 
             # Save checkpoint after each step
             if self.checkpoint_file:
@@ -553,6 +662,11 @@ class WorkflowEngine:
         # Write output
         with open(self.config.output_file, "w") as f:
             f.write(self.state.cumulative_output)
+
+        # End workflow telemetry
+        if collector and TELEMETRY_AVAILABLE:
+            collector.end_workflow(workflow_id, "completed")
+        logger.info(f"Workflow {workflow_id} completed successfully")
 
         print("-" * 60)
         print(f"Workflow complete. Output written to {self.config.output_file}")
