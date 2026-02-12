@@ -15,35 +15,14 @@ import os
 import re
 import sys
 import time
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
 import requests
 
-# Import optional monitoring modules
-try:
-    from logging_config import setup_logging, get_logger
-    LOGGING_AVAILABLE = True
-except ImportError:
-    LOGGING_AVAILABLE = False
-    logging.basicConfig(level=logging.INFO)
-    def get_logger(name: str) -> logging.Logger:
-        return logging.getLogger(name)
-
-try:
-    from telemetry import get_collector, time_operation
-    TELEMETRY_AVAILABLE = True
-except ImportError:
-    TELEMETRY_AVAILABLE = False
-    def get_collector():
-        return None
-    def time_operation(name, labels=None):
-        from contextlib import nullcontext
-        return nullcontext()
-
-logger = get_logger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -586,10 +565,6 @@ class WorkflowEngine:
         Returns:
             The cumulative output from all steps.
         """
-        # Initialize telemetry
-        workflow_id = f"wf-{uuid.uuid4().hex[:8]}"
-        collector = get_collector()
-
         # Load specification
         spec_content = spec
         if os.path.isfile(spec):
@@ -600,10 +575,7 @@ class WorkflowEngine:
         loader = GuideLoader(guide_file)
         steps = loader.load()
 
-        # Start workflow telemetry
-        if collector and TELEMETRY_AVAILABLE:
-            collector.start_workflow(workflow_id, len(steps))
-        logger.info(f"Starting workflow {workflow_id} with {len(steps)} steps")
+        logger.info(f"Starting workflow with {len(steps)} steps")
 
         # Resume from checkpoint if provided
         start_step = 0
@@ -639,18 +611,10 @@ class WorkflowEngine:
             )
 
             try:
-                with time_operation("step_processing"):
-                    step_output = self.pipeline.process(context)
+                step_output = self.pipeline.process(context)
                 self.state.add_step_output(step_output)
-
-                # Record step completion in telemetry
-                if collector and TELEMETRY_AVAILABLE:
-                    collector.complete_step(workflow_id, "pipeline", tokens=len(step_output))
-
             except Exception as e:
                 logger.error(f"Step {i + 1} failed: {e}")
-                if collector and TELEMETRY_AVAILABLE:
-                    collector.fail_step(workflow_id, str(e))
                 raise
 
             # Save checkpoint after each step
@@ -663,10 +627,7 @@ class WorkflowEngine:
         with open(self.config.output_file, "w") as f:
             f.write(self.state.cumulative_output)
 
-        # End workflow telemetry
-        if collector and TELEMETRY_AVAILABLE:
-            collector.end_workflow(workflow_id, "completed")
-        logger.info(f"Workflow {workflow_id} completed successfully")
+        logger.info("Workflow completed successfully")
 
         print("-" * 60)
         print(f"Workflow complete. Output written to {self.config.output_file}")
@@ -692,9 +653,39 @@ class WorkflowEngine:
         loader = GuideLoader(guide_file)
         steps = loader.load()
 
+        warnings = []
+
+        # Check for gaps in step numbering
+        with open(guide_file, "r") as f:
+            step_nums = []
+            for line in f:
+                match = GuideLoader.STEP_PATTERN.match(line.strip())
+                if match:
+                    step_nums.append(int(match.group(1)))
+        if step_nums:
+            expected = list(range(min(step_nums), max(step_nums) + 1))
+            gaps = set(expected) - set(step_nums)
+            if gaps:
+                warnings.append(f"Gap in step numbering: missing step(s) {sorted(gaps)}")
+
+        # Check for empty descriptions
+        for i, step in enumerate(steps, 1):
+            if len(step.strip()) < 5:
+                warnings.append(f"Step {i}: description is very short ({len(step.strip())} chars)")
+
+        # Warn on large guides
+        if len(steps) > 50:
+            warnings.append(f"Guide has {len(steps)} steps — consider splitting into smaller guides and using --chain")
+
         print(f"Dry run - Validated {len(steps)} steps:")
         for i, step in enumerate(steps, 1):
             print(f"  Step {i}: {step}")
+
+        if warnings:
+            print(f"\nWarnings ({len(warnings)}):")
+            for w in warnings:
+                print(f"  - {w}")
+
         print("\nGuide validation successful.")
 
 

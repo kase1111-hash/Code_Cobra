@@ -167,9 +167,6 @@ source venv/bin/activate
 ```
 Code_Cobra/
 ├── autonomous_ensemble.py  # Main application
-├── monitoring.py           # Health checks & monitoring
-├── telemetry.py            # Metrics collection
-├── logging_config.py       # Logging setup
 ├── coding_guide.txt        # 40-step code generation guide
 ├── post_coding_guide.txt   # 40-step security hardening guide
 ├── config/                 # Environment configurations
@@ -188,15 +185,12 @@ Code_Cobra/
 │   └── run_regression.py   # Regression test runner
 ├── scripts/                # Utility scripts
 │   ├── setup.sh            # Environment setup
-│   ├── deploy.sh           # Deployment automation
-│   ├── rollback.sh         # Rollback mechanism
 │   └── backdoor_check.py   # Security scanning
 ├── docs/                   # Documentation
 │   ├── API.md              # API reference
 │   ├── ARCHITECTURE.md     # System architecture
 │   ├── SECURITY.md         # Security details
-│   ├── FAQ.md              # Frequently asked questions
-│   └── USER_STORIES.md     # User stories
+│   └── FAQ.md              # Frequently asked questions
 ├── .github/                # GitHub templates & CI/CD
 │   ├── workflows/
 │   ├── PULL_REQUEST_TEMPLATE.md

@@ -107,7 +107,7 @@ class TestOllamaRequest(unittest.TestCase):
         self.assertEqual(result["prompt"], "Test prompt")
         self.assertEqual(result["options"]["temperature"], 0.5)
         self.assertFalse(result["stream"])
-        self.assertEqual(result["max_tokens"], 1000)
+        self.assertEqual(result["options"]["num_predict"], 1000)
 
 
 class TestGuideLoader(unittest.TestCase):

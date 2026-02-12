@@ -2,8 +2,7 @@
 """
 System/Acceptance tests for Autonomous Coding Ensemble System.
 
-These tests verify end-to-end user scenarios and acceptance criteria
-from the user stories defined in docs/USER_STORIES.md.
+These tests verify end-to-end user scenarios and acceptance criteria.
 """
 
 import json
