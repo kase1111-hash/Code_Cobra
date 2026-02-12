@@ -64,7 +64,7 @@ Changelog = "https://github.com/kase1111-hash/Code_Cobra/blob/main/CHANGELOG.md"
 code-cobra = "autonomous_ensemble:main"
 
 [tool.setuptools]
-py-modules = ["autonomous_ensemble", "monitoring", "logging_config", "telemetry"]
+py-modules = ["autonomous_ensemble"]
 
 [tool.setuptools.packages.find]
 where = ["."]
