@@ -122,7 +122,7 @@ for step in steps:
 #### Exceptions
 
 - `FileNotFoundError`: Guide file doesn't exist
-- `ValueError`: No valid steps found in guide
+- `ValueError`: No valid steps found in guide, or duplicate step numbers detected
 
 ---
 
@@ -248,7 +248,7 @@ checkpoint = Checkpoint(
     completed_steps=5,
     cumulative_output="...",
     step_outputs=["step1", "step2", ...],
-    timestamp="2024-01-01T12:00:00"
+    timestamp="2026-01-15T12:00:00"
 )
 
 # Save to file
@@ -329,9 +329,10 @@ context = StepContext(
 | Exception | Cause | Resolution |
 |-----------|-------|------------|
 | `FileNotFoundError` | Guide/config file missing | Check file path |
-| `ValueError` | No valid steps in guide | Check guide format |
-| `ConnectionError` | Can't reach Ollama API | Start Ollama server |
-| `TimeoutError` | Model response timeout | Increase timeout or use smaller model |
+| `ValueError` | No valid steps in guide, or duplicate step numbers | Check guide format and step numbering |
+| `ConnectionError` | Can't reach Ollama API after retries | Start Ollama server (`ollama serve`) |
+| `TimeoutError` | Model response timeout after retries | Increase timeout or use smaller model |
+| `RuntimeError` | Non-retryable HTTP error (e.g., 4xx) or invalid model | Verify model name and Ollama configuration |
 
 ### Example Error Handling
 
@@ -345,10 +346,14 @@ try:
     result = engine.run("spec", "guide.txt")
 except FileNotFoundError as e:
     print(f"File error: {e}")
+except ValueError as e:
+    print(f"Validation error: {e}")
 except ConnectionError as e:
-    print(f"API error: {e}")
+    print(f"API connection error: {e}")
 except TimeoutError as e:
     print(f"Timeout: {e}")
+except RuntimeError as e:
+    print(f"Runtime error: {e}")
 ```
 
 ---

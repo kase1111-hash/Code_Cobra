@@ -167,18 +167,46 @@ source venv/bin/activate
 ```
 Code_Cobra/
 ├── autonomous_ensemble.py  # Main application
-├── tests/                  # Unit tests
+├── monitoring.py           # Health checks & monitoring
+├── telemetry.py            # Metrics collection
+├── logging_config.py       # Logging setup
+├── coding_guide.txt        # 40-step code generation guide
+├── post_coding_guide.txt   # 40-step security hardening guide
+├── config/                 # Environment configurations
+│   ├── dev.json
+│   ├── prod.json
+│   └── stage.json
+├── tests/                  # Test suite
 │   ├── __init__.py
-│   └── test_core.py
+│   ├── test_core.py        # Core component tests
+│   ├── test_acceptance.py  # Acceptance tests
+│   ├── test_integration.py # Integration tests
+│   ├── test_security.py    # Security tests
+│   ├── test_performance.py # Performance benchmarks
+│   ├── test_exploits.py    # Exploit simulation tests
+│   ├── test_dynamic.py     # Dynamic analysis tests
+│   └── run_regression.py   # Regression test runner
 ├── scripts/                # Utility scripts
-│   └── setup.sh
-├── .github/workflows/      # CI/CD
-│   └── ci.yml
+│   ├── setup.sh            # Environment setup
+│   ├── deploy.sh           # Deployment automation
+│   ├── rollback.sh         # Rollback mechanism
+│   └── backdoor_check.py   # Security scanning
+├── docs/                   # Documentation
+│   ├── API.md              # API reference
+│   ├── ARCHITECTURE.md     # System architecture
+│   ├── SECURITY.md         # Security details
+│   ├── FAQ.md              # Frequently asked questions
+│   └── USER_STORIES.md     # User stories
+├── .github/                # GitHub templates & CI/CD
+│   ├── workflows/
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── ISSUE_TEMPLATE/
 ├── requirements.txt        # Production deps
 ├── requirements-dev.txt    # Development deps
-├── Makefile               # Build automation
-├── Dockerfile             # Container build
-└── docker-compose.yml     # Container orchestration
+├── pyproject.toml          # Package metadata & tool config
+├── Makefile                # Build automation
+├── Dockerfile              # Container build
+└── docker-compose.yml      # Container orchestration
 ```
 
 ## Questions?
