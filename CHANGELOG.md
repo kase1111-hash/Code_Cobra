@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-01-27
+
+### Fixed
+- **CRITICAL:** OllamaRequest now correctly places `max_tokens` as `num_predict` inside `options` object to match Ollama API specification
+- GuideLoader now detects and rejects duplicate step numbers with helpful error messages including line numbers
+- Checkpoint.from_dict() now validates required fields and types, providing clear error messages for corrupted checkpoint files
+- OllamaClient retries on HTTP 5xx server errors; HTTP 4xx client errors fail immediately with descriptive messages
+- Flaky `test_guide_load_consistency` performance test stabilized with warmup runs and increased variance threshold
+
+### Added
+- Integrated telemetry and structured logging modules into main application with graceful fallback when modules are unavailable
+- Monitoring module (`monitoring.py`) for health checks and system metrics
+- Telemetry module (`telemetry.py`) for metrics collection and performance tracking
+- Logging configuration module (`logging_config.py`) for centralized logging setup
+- Deployment script (`scripts/deploy.sh`) and rollback script (`scripts/rollback.sh`)
+- Security scanning tool (`scripts/backdoor_check.py`) for detecting hardcoded credentials and suspicious patterns
+- Comprehensive test suite expansion: acceptance, integration, security, performance, exploit simulation, and dynamic analysis tests (125 total tests)
+- Environment-specific configuration files (`config/dev.json`, `config/prod.json`, `config/stage.json`)
+
 ## [1.0.0] - 2026-01-10
 
 ### Added

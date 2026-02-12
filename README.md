@@ -5,6 +5,50 @@ A **multi-agent AI coding system** for autonomous code generation and security h
 
 ---
 
+## Quick Start
+
+### Prerequisites
+
+- Python 3.8+
+- [Ollama](https://ollama.ai) installed and running locally
+- Sufficient RAM for your chosen models (8GB+ recommended)
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/kase1111-hash/Code_Cobra.git
+cd Code_Cobra
+
+# Set up environment
+./scripts/setup.sh
+source venv/bin/activate
+
+# Pull recommended models
+ollama pull qwen2.5-coder:7b
+ollama pull deepseek-coder-v2:16b
+ollama pull codestral:22b
+```
+
+### Basic Usage
+
+```bash
+# Run with a specification
+python autonomous_ensemble.py --spec "Build a REST API for user management" --guide coding_guide.txt
+
+# Validate a guide file without running models
+python autonomous_ensemble.py --dry-run --guide coding_guide.txt
+
+# Chain multiple guides
+python autonomous_ensemble.py --spec "Build a full application" \
+  --chain coding_guide.txt post_coding_guide.txt
+
+# Resume an interrupted workflow
+python autonomous_ensemble.py --spec "..." --resume progress.json
+```
+
+---
+
 ## 1. System Overview
 
 **Purpose:** A local, autonomous multi-model ensemble that processes coding tasks through a swappable guide-driven workflow. Three specialized LLMs collaborate sequentially—creative drafting, analytical correction, and adversarial security scanning—to produce quality-checked output without human intervention. This system embodies the authenticity economy principle: human cognitive labor defines the intent, while AI handles the implementation with full process legibility.
@@ -134,10 +178,10 @@ OllamaRequest = {
     "model": str,
     "prompt": str,
     "options": {
-        "temperature": float
+        "temperature": float,
+        "num_predict": int       # Max tokens per response
     },
-    "stream": bool,              # Always False for this system
-    "max_tokens": int
+    "stream": bool               # Always False for this system
 }
 ```
 
@@ -282,24 +326,32 @@ Step 40: Final security audit and penetration test review.
 |------------|---------|----------|
 | `FileNotFoundError` | Guide file missing | Exit with message, list available guides |
 | `ValueError` | No valid steps in guide | Exit with format instructions |
-| `ConnectionError` | Ollama API unreachable | Retry 3x with backoff, then exit |
-| `ModelError` | Invalid model name | Exit with available models list |
-| `TimeoutError` | Model response timeout | Retry current step, log warning |
+| `ConnectionError` | Ollama API unreachable | Retry 3x with exponential backoff, then exit |
+| `RuntimeError` | Non-retryable HTTP error (4xx) | Exit with HTTP status and error details |
+| `TimeoutError` | Model response timeout | Retry 3x, then exit |
 
 ---
 
 ## 9. CLI Interface
 
 ```
-usage: autonomous_ensemble.py [-h] --spec SPEC [--guide GUIDE] [--output OUTPUT]
+usage: autonomous_ensemble.py [-h] [--spec SPEC] [--guide GUIDE] [--output OUTPUT]
+                              [--config CONFIG] [--verbose] [--dry-run]
+                              [--checkpoint CHECKPOINT] [--resume RESUME]
+                              [--chain GUIDE [GUIDE ...]] [--checkpoint-dir DIR]
 
 Arguments:
-  --spec SPEC       Project specification (string or file path)
-  --guide GUIDE     Path to guide file (default: coding_guide.txt)
-  --output OUTPUT   Output file path (default: final_output.txt)
-  --config CONFIG   Optional JSON config file for model overrides
-  --verbose         Enable detailed logging
-  --dry-run         Parse guide and validate without running models
+  --spec SPEC              Project specification (string or file path)
+                           Required unless using --dry-run
+  --guide GUIDE            Path to guide file (default: coding_guide.txt)
+  --output OUTPUT          Output file path (default: final_output.txt)
+  --config CONFIG          Optional JSON config file for model overrides
+  --verbose                Enable detailed logging
+  --dry-run                Parse guide and validate without running models
+  --checkpoint CHECKPOINT  Save progress to checkpoint file after each step
+  --resume RESUME          Resume workflow from a checkpoint file
+  --chain GUIDE [GUIDE ...]  Chain multiple guides sequentially
+  --checkpoint-dir DIR     Directory for chain checkpoint files
 ```
 
 ---
@@ -347,7 +399,8 @@ checkpoint = {
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | Python | ≥3.8 | Runtime |
-| requests | (stdlib-compatible) | HTTP client for Ollama API |
+| requests | ≥2.28.0 | HTTP client for Ollama API |
+| python-dotenv | ≥1.0.0 | Environment variable management (.env files) |
 | json | (stdlib) | Payload serialization |
 | os | (stdlib) | File operations |
 | argparse | (stdlib) | CLI parsing |
