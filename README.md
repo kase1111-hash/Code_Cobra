@@ -236,30 +236,64 @@ FUNCTION process_step(step_desc, spec, previous_output):
 
 ## 6. Prompt Templates
 
+All prompts use XML-style delimiter tags to separate system instructions from user data, mitigating prompt injection.
+
 ### 6.1 Model A (Creative Draft)
 
 ```
-{context}
-Apply this step to the spec '{spec}': {step_description}
+You are a code generation assistant. Follow the instruction below.
+
+<instruction>
+Apply this step: {step_description}
+</instruction>
+
+<user_specification>
+{spec}
+</user_specification>
+
+<previous_context>
+{previous_output}
+</previous_context>
+
 Generate a creative draft of code or plan.
 ```
 
 ### 6.2 Model B (Error Correction)
 
 ```
-{context}
-Strictly analyze this for errors, bugs, inefficiencies:
-{current_output}
+You are a code review assistant. Follow the instruction below.
+
+<instruction>
+Strictly analyze the code for errors, bugs, and inefficiencies.
 Correct without adding new features.
+</instruction>
+
+<previous_context>
+{previous_output}
+</previous_context>
+
+<code_to_review>
+{current_output}
+</code_to_review>
 ```
 
 ### 6.3 Model C (Security Scan)
 
 ```
-{context}
-Act as a hacker: Identify security flaws in the following and suggest fixes:
-{current_output}
+You are a security auditor. Follow the instruction below.
+
+<instruction>
+Act as a hacker: Identify security flaws and suggest fixes.
 List vulnerabilities and provide corrected code.
+</instruction>
+
+<previous_context>
+{previous_output}
+</previous_context>
+
+<code_to_audit>
+{current_output}
+</code_to_audit>
 ```
 
 ---
@@ -399,8 +433,8 @@ checkpoint = {
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | Python | ≥3.8 | Runtime |
-| requests | ≥2.28.0 | HTTP client for Ollama API |
-| python-dotenv | ≥1.0.0 | Environment variable management (.env files) |
+| requests | ==2.32.3 | HTTP client for Ollama API |
+| python-dotenv | ==1.0.1 | Environment variable management (.env files) |
 | json | (stdlib) | Payload serialization |
 | os | (stdlib) | File operations |
 | argparse | (stdlib) | CLI parsing |
@@ -425,9 +459,12 @@ checkpoint = {
 
 - All processing is local (no external API calls beyond localhost) ensuring digital sovereignty and data ownership
 - Spec and output files should be treated as potentially sensitive
-- Model C's "hacker perspective" prompts should not be exposed to untrusted input
+- Prompts use XML delimiter tags (`<user_specification>`, `<instruction>`) to separate user data from system instructions
+- Spec content is scanned for prompt injection patterns before processing
+- Model output is scanned for accidentally-generated secrets before writing to disk
+- Checkpoint files are protected by HMAC-SHA256 integrity verification
 - Output should be reviewed before execution in production environments
-- Supports self-hosted AI workflows with private AI systems for enterprise use
+- See [docs/SECURITY.md](docs/SECURITY.md) for the full security model
 
 ---
 

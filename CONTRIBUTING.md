@@ -166,19 +166,21 @@ source venv/bin/activate
 
 ```
 Code_Cobra/
-├── autonomous_ensemble.py  # Main application
+├── autonomous_ensemble.py  # Main application (~1000 lines)
 ├── coding_guide.txt        # 40-step code generation guide
 ├── post_coding_guide.txt   # 40-step security hardening guide
 ├── config/                 # Environment configurations
 │   ├── dev.json
 │   ├── prod.json
 │   └── stage.json
-├── tests/                  # Test suite
-│   ├── __init__.py
+├── guides/                 # Example workflow guides
+│   ├── cli_tool_guide.txt
+│   └── rest_api_guide.txt
+├── tests/                  # Test suite (151 tests)
 │   ├── test_core.py        # Core component tests
 │   ├── test_acceptance.py  # Acceptance tests
 │   ├── test_integration.py # Integration tests
-│   ├── test_security.py    # Security tests
+│   ├── test_security.py    # Security + hardening tests
 │   ├── test_performance.py # Performance benchmarks
 │   ├── test_exploits.py    # Exploit simulation tests
 │   ├── test_dynamic.py     # Dynamic analysis tests
@@ -189,14 +191,14 @@ Code_Cobra/
 ├── docs/                   # Documentation
 │   ├── API.md              # API reference
 │   ├── ARCHITECTURE.md     # System architecture
-│   ├── SECURITY.md         # Security details
-│   └── FAQ.md              # Frequently asked questions
+│   ├── SECURITY.md         # Security model & component access
+│   └── FAQ.md              # FAQ, troubleshooting & support
 ├── .github/                # GitHub templates & CI/CD
-│   ├── workflows/
+│   ├── workflows/ci.yml
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   └── ISSUE_TEMPLATE/
-├── requirements.txt        # Production deps
-├── requirements-dev.txt    # Development deps
+├── requirements.txt        # Production deps (pinned)
+├── requirements-dev.txt    # Development deps (pinned)
 ├── pyproject.toml          # Package metadata & tool config
 ├── Makefile                # Build automation
 ├── Dockerfile              # Container build

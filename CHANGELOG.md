@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-02-20
+
+### Security Hardening
+- Path validation: spec, output, and checkpoint paths canonicalized and boundary-checked
+- Checkpoint HMAC-SHA256 integrity verification on save/load
+- Output secret scanning for API keys, tokens, and private key blocks before writing
+- Prompt injection mitigation via XML delimiter tags in all prompts
+- Injection detection heuristics for spec content with logged warnings
+- Append-only JSON-lines audit trail (`AuditLogger`)
+- Dependencies pinned to exact versions; CI tool versions pinned
+- Bandit security scan now blocks CI on failure
+- Ollama port bound to `127.0.0.1` in docker-compose
+
+### Documentation
+- Consolidated audit reports into single `AUDIT_REPORT.md`
+- Merged `SUPPORT.md` into `docs/FAQ.md`; removed obsolete `PLAN.md`, `SECURITY_REMEDIATION_PLAN.md`
+- Updated prompt templates, security notes, and component access model docs
+
+### Added
+- `OutputScanner`, `AuditLogger`, `_validate_path_within_base()`, `_check_for_injection()`
+- 40 new security tests (151 total, up from 125)
+
 ## [1.0.1] - 2026-01-27
 
 ### Fixed
@@ -17,11 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flaky `test_guide_load_consistency` performance test stabilized with warmup runs and increased variance threshold
 
 ### Added
-- Integrated telemetry and structured logging modules into main application with graceful fallback when modules are unavailable
-- Monitoring module (`monitoring.py`) for health checks and system metrics
-- Telemetry module (`telemetry.py`) for metrics collection and performance tracking
-- Logging configuration module (`logging_config.py`) for centralized logging setup
-- Deployment script (`scripts/deploy.sh`) and rollback script (`scripts/rollback.sh`)
 - Security scanning tool (`scripts/backdoor_check.py`) for detecting hardcoded credentials and suspicious patterns
 - Comprehensive test suite expansion: acceptance, integration, security, performance, exploit simulation, and dynamic analysis tests (125 total tests)
 - Environment-specific configuration files (`config/dev.json`, `config/prod.json`, `config/stage.json`)
