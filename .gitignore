@@ -36,6 +36,12 @@ env/
 final_output.txt
 *.log
 regression_report.json
+audit.jsonl
+chain_output.txt
+output_*.txt
+
+# Checkpoint HMAC files
+*.hmac
 
 # Environment files (secrets)
 .env

@@ -36,21 +36,8 @@ We take security vulnerabilities seriously. If you discover a security issue in 
 - **Resolution**: Security patches are prioritized and released as soon as possible
 - **Credit**: With your permission, we will credit you in the security advisory
 
-## Security Measures
+## Security Documentation
 
-Code Cobra implements several security measures by design:
+For the full security model, component access boundaries, and threat analysis, see [docs/SECURITY.md](docs/SECURITY.md).
 
-- **Local-only processing**: All LLM inference happens via local Ollama server
-- **No external API calls**: Your data never leaves your machine
-- **Non-root container execution**: Docker runs as unprivileged user
-- **Input validation**: Guide files and specifications are validated before processing
-- **Adversarial security scanning**: Model C performs security vulnerability analysis
-
-For detailed security documentation, see [docs/SECURITY.md](docs/SECURITY.md).
-
-## Security Updates
-
-Security-related updates are documented in [CHANGELOG.md](CHANGELOG.md) and released as:
-
-- **Patch versions** (v1.0.x) for security fixes
-- **Minor versions** (v1.x.0) for security improvements
+Security-related updates are documented in [CHANGELOG.md](CHANGELOG.md).

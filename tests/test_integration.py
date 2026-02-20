@@ -175,14 +175,18 @@ class TestCheckpointIntegration(unittest.TestCase):
         self.guide_file.close()
 
         self.checkpoint_file = tempfile.NamedTemporaryFile(
-            mode='w', suffix='.json', delete=False
+            mode='w', suffix='.json', delete=False, dir=os.getcwd()
         )
         self.checkpoint_file.close()
 
     def tearDown(self):
         """Clean up test fixtures."""
         os.unlink(self.guide_file.name)
-        os.unlink(self.checkpoint_file.name)
+        if os.path.exists(self.checkpoint_file.name):
+            os.unlink(self.checkpoint_file.name)
+        hmac_file = self.checkpoint_file.name + ".hmac"
+        if os.path.exists(hmac_file):
+            os.unlink(hmac_file)
         if os.path.exists(self.config.output_file):
             os.unlink(self.config.output_file)
 

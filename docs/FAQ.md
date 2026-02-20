@@ -172,3 +172,43 @@ Code Cobra is designed for code generation assistance. Always review output befo
 2. Perform code review
 3. Run security scanning tools
 4. Test in staging environment first
+
+## Getting Help
+
+### GitHub Issues
+
+For bugs and feature requests, use [GitHub Issues](https://github.com/kase1111-hash/Code_Cobra/issues):
+
+- **[Bug Reports](https://github.com/kase1111-hash/Code_Cobra/issues/new?template=bug_report.md)**
+- **[Feature Requests](https://github.com/kase1111-hash/Code_Cobra/issues/new?template=feature_request.md)**
+
+Before opening an issue:
+1. Search existing issues to avoid duplicates
+2. Check this FAQ for common questions
+3. Include relevant information (version, OS, configuration)
+
+### Security Issues
+
+Do **NOT** open public issues for security vulnerabilities. See our [Security Policy](../SECURITY.md) for responsible disclosure guidelines.
+
+### Running Diagnostics
+
+```bash
+# Validate your setup
+make dry-run
+
+# Run tests
+make test
+
+# Check code quality
+make analyze
+
+# Check versions
+python --version
+ollama --version
+ollama list
+```
+
+### Contributing
+
+Want to help improve Code Cobra? See our [Contributing Guide](../CONTRIBUTING.md).
