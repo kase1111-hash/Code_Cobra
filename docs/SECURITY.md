@@ -102,6 +102,34 @@ Code Cobra operates entirely locally:
 - [ ] Test for common vulnerabilities
 - [ ] Validate in staging environment
 
+## Component Access Model
+
+Each module has defined access expectations. Path validation enforces these at
+runtime; the table below documents the intended boundaries.
+
+| Component | File System Access | Network Access |
+|-----------|--------------------|----------------|
+| `GuideLoader` | Reads guide files within working directory | None |
+| `WorkflowEngine` | Reads spec files within working directory; writes output and checkpoint files within working directory | None |
+| `OllamaClient` | None | HTTP POST to configured `ollama_api` URL (default: `localhost:11434`) |
+| `Checkpoint` | Reads/writes checkpoint JSON + HMAC files within working directory | None |
+| `GuideChain` | Reads guides; writes per-guide outputs and checkpoints within working directory | None |
+| `AuditLogger` | Appends to `audit.jsonl` in working directory | None |
+| `OutputScanner` | None (in-memory scan only) | None |
+
+### Checkpoint Integrity
+
+Checkpoint files are protected by HMAC-SHA256. On save, a digest is written to
+`<checkpoint>.hmac`. On load, if the HMAC file exists, the digest is verified
+before deserialization. The HMAC key is derived from the `CHECKPOINT_SECRET`
+environment variable (default: `"code-cobra-local"`).
+
+### Prompt Injection Mitigation
+
+User-supplied specification content is wrapped in `<user_specification>` delimiter
+tags to separate it from system instructions. A lightweight heuristic scanner
+checks spec content for common prompt injection patterns and logs warnings.
+
 ## Potential Attack Vectors
 
 ### Mitigated Risks

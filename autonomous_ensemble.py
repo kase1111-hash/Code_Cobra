@@ -9,6 +9,8 @@ and automated vulnerability scanning.
 """
 
 import argparse
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -23,6 +25,103 @@ import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+CHECKPOINT_HMAC_KEY = os.environ.get("CHECKPOINT_SECRET", "code-cobra-local").encode()
+
+
+# =============================================================================
+# Security Helpers
+# =============================================================================
+
+def _validate_path_within_base(path: str, base: Optional[str] = None) -> str:
+    """Resolve path and reject if it escapes the allowed base directory.
+
+    Args:
+        path: The file path to validate.
+        base: Allowed base directory. Defaults to current working directory.
+
+    Returns:
+        The resolved real path.
+
+    Raises:
+        ValueError: If path resolves outside the allowed base.
+    """
+    real_path = os.path.realpath(path)
+    allowed_base = os.path.realpath(base or os.getcwd())
+    if real_path != allowed_base and not real_path.startswith(allowed_base + os.sep):
+        raise ValueError(
+            f"Path '{path}' resolves outside allowed directory.\n"
+            f"  Resolved: {real_path}\n"
+            f"  Allowed:  {allowed_base}"
+        )
+    return real_path
+
+
+_INJECTION_PATTERNS = [
+    re.compile(r'ignore\s+(previous|above|all)\s+instructions', re.IGNORECASE),
+    re.compile(r'(?:^|\n)\s*(system|assistant)\s*:', re.IGNORECASE),
+    re.compile(r'you\s+are\s+now\s+', re.IGNORECASE),
+    re.compile(r'<\s*/?\s*(?:system|instruction|prompt)', re.IGNORECASE),
+]
+
+
+def _check_for_injection(content: str, source: str) -> None:
+    """Log a warning if content contains prompt-injection-like patterns.
+
+    This is a lightweight heuristic check. It does not block execution because
+    false positives are possible with legitimate specification text.
+    """
+    for pattern in _INJECTION_PATTERNS:
+        match = pattern.search(content)
+        if match:
+            logger.warning(
+                "Potential prompt injection detected in %s: "
+                "matched pattern near '%s'",
+                source, match.group()[:50]
+            )
+
+
+class OutputScanner:
+    """Lightweight scanner for secrets in model output."""
+
+    PATTERNS = {
+        "hardcoded_api_key": re.compile(
+            r'(?:api[_-]?key|apikey|secret[_-]?key)\s*=\s*["\'][^"\']{20,}["\']',
+            re.IGNORECASE
+        ),
+        "hardcoded_token": re.compile(
+            r'(?:token|auth[_-]?token|bearer)\s*=\s*["\'][a-zA-Z0-9]{20,}["\']',
+            re.IGNORECASE
+        ),
+        "private_key_block": re.compile(
+            r'-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----'
+        ),
+    }
+
+    @classmethod
+    def scan(cls, content: str) -> List[str]:
+        """Return list of warning strings for any potential secrets found."""
+        warnings = []
+        for name, pattern in cls.PATTERNS.items():
+            if pattern.search(content):
+                warnings.append(f"Potential secret in output: {name}")
+        return warnings
+
+
+class AuditLogger:
+    """Append-only structured audit log (JSON-lines format)."""
+
+    def __init__(self, path: str = "audit.jsonl"):
+        self.path = path
+
+    def log(self, event: str, **kwargs) -> None:
+        """Append a structured event to the audit log."""
+        entry = {"timestamp": datetime.now().isoformat(), "event": event, **kwargs}
+        try:
+            with open(self.path, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+        except OSError as e:
+            logger.warning("Failed to write audit log: %s", e)
 
 
 # =============================================================================
@@ -311,16 +410,32 @@ class Checkpoint:
         )
 
     def save(self, path: str) -> None:
-        """Save checkpoint to file."""
+        """Save checkpoint to file with HMAC integrity digest."""
+        data = json.dumps(self.to_dict(), indent=2)
+        digest = hmac.new(CHECKPOINT_HMAC_KEY, data.encode(), hashlib.sha256).hexdigest()
         with open(path, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            f.write(data)
+        with open(path + ".hmac", "w") as f:
+            f.write(digest)
 
     @classmethod
     def load(cls, path: str) -> "Checkpoint":
-        """Load checkpoint from file."""
+        """Load checkpoint from file, verifying HMAC if present."""
         with open(path, "r") as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+            data = f.read()
+        hmac_path = path + ".hmac"
+        if os.path.exists(hmac_path):
+            with open(hmac_path, "r") as f:
+                expected = f.read().strip()
+            actual = hmac.new(CHECKPOINT_HMAC_KEY, data.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(expected, actual):
+                raise ValueError(
+                    f"Checkpoint integrity check failed: {path} has been modified.\n"
+                    "The checkpoint file may be corrupted or tampered with."
+                )
+        else:
+            logger.warning("No HMAC file for checkpoint %s — skipping integrity check", path)
+        return cls.from_dict(json.loads(data))
 
 
 # =============================================================================
@@ -514,27 +629,49 @@ class ModelPipeline:
     def _build_creative_prompt(self, context: StepContext) -> str:
         """Build prompt for Model A (Creative Draft)."""
         return (
+            "You are a code generation assistant. Follow the instruction below.\n\n"
+            f"<instruction>\n"
+            f"Apply this step: {context.step_description}\n"
+            f"</instruction>\n\n"
+            f"<user_specification>\n"
+            f"{context.spec}\n"
+            f"</user_specification>\n\n"
+            f"<previous_context>\n"
             f"{context.previous_output}\n"
-            f"Apply this step to the spec '{context.spec}': {context.step_description}\n"
-            f"Generate a creative draft of code or plan."
+            f"</previous_context>\n\n"
+            "Generate a creative draft of code or plan."
         )
 
     def _build_correction_prompt(self, context: StepContext, current_output: str) -> str:
         """Build prompt for Model B (Error Correction)."""
         return (
+            "You are a code review assistant. Follow the instruction below.\n\n"
+            f"<instruction>\n"
+            f"Strictly analyze the code for errors, bugs, and inefficiencies. "
+            f"Correct without adding new features.\n"
+            f"</instruction>\n\n"
+            f"<previous_context>\n"
             f"{context.previous_output}\n"
-            f"Strictly analyze this for errors, bugs, inefficiencies:\n"
+            f"</previous_context>\n\n"
+            f"<code_to_review>\n"
             f"{current_output}\n"
-            f"Correct without adding new features."
+            f"</code_to_review>"
         )
 
     def _build_security_prompt(self, context: StepContext, current_output: str) -> str:
         """Build prompt for Model C (Security Scan)."""
         return (
+            "You are a security auditor. Follow the instruction below.\n\n"
+            f"<instruction>\n"
+            f"Act as a hacker: Identify security flaws and suggest fixes. "
+            f"List vulnerabilities and provide corrected code.\n"
+            f"</instruction>\n\n"
+            f"<previous_context>\n"
             f"{context.previous_output}\n"
-            f"Act as a hacker: Identify security flaws in the following and suggest fixes:\n"
+            f"</previous_context>\n\n"
+            f"<code_to_audit>\n"
             f"{current_output}\n"
-            f"List vulnerabilities and provide corrected code."
+            f"</code_to_audit>"
         )
 
 
@@ -546,12 +683,14 @@ class WorkflowEngine:
     """Main workflow engine coordinating the ensemble processing."""
 
     def __init__(self, config: Config, hooks: Optional[PipelineHooks] = None,
-                 checkpoint_file: Optional[str] = None):
+                 checkpoint_file: Optional[str] = None,
+                 audit_log: Optional[AuditLogger] = None):
         self.config = config
         self.client = OllamaClient(config)
         self.pipeline = ModelPipeline(config, self.client, hooks)
         self.state = StateManager()
         self.checkpoint_file = checkpoint_file
+        self.audit = audit_log or AuditLogger()
 
     def run(self, spec: str, guide_file: str, resume_from: Optional[str] = None) -> str:
         """
@@ -568,13 +707,18 @@ class WorkflowEngine:
         # Load specification
         spec_content = spec
         if os.path.isfile(spec):
-            with open(spec, "r") as f:
+            real_spec = _validate_path_within_base(spec)
+            with open(real_spec, "r") as f:
                 spec_content = f.read()
+
+        # Check for prompt injection in spec content
+        _check_for_injection(spec_content, "specification")
 
         # Load guide
         loader = GuideLoader(guide_file)
         steps = loader.load()
 
+        self.audit.log("workflow_start", guide=guide_file, steps=len(steps))
         logger.info(f"Starting workflow with {len(steps)} steps")
 
         # Resume from checkpoint if provided
@@ -602,6 +746,7 @@ class WorkflowEngine:
             step_desc = steps[i]
             print(f"\nProcessing Step {i + 1}/{len(steps)}: {step_desc[:50]}...")
             logger.debug(f"Processing step {i + 1}: {step_desc}")
+            self.audit.log("step_start", step=i + 1, description=step_desc[:80])
 
             context = StepContext(
                 step_number=i + 1,
@@ -615,7 +760,10 @@ class WorkflowEngine:
                 self.state.add_step_output(step_output)
             except Exception as e:
                 logger.error(f"Step {i + 1} failed: {e}")
+                self.audit.log("step_failed", step=i + 1, error=str(e))
                 raise
+
+            self.audit.log("step_complete", step=i + 1)
 
             # Save checkpoint after each step
             if self.checkpoint_file:
@@ -623,10 +771,19 @@ class WorkflowEngine:
 
             print(f"  Step {i + 1} complete.")
 
+        # Scan output for secrets before writing
+        secret_warnings = OutputScanner.scan(self.state.cumulative_output)
+        for warning in secret_warnings:
+            logger.warning(warning)
+        if secret_warnings:
+            self.audit.log("secret_scan_warnings", warnings=secret_warnings)
+
         # Write output
-        with open(self.config.output_file, "w") as f:
+        validated_output = _validate_path_within_base(self.config.output_file)
+        with open(validated_output, "w") as f:
             f.write(self.state.cumulative_output)
 
+        self.audit.log("workflow_complete", output_file=self.config.output_file)
         logger.info("Workflow completed successfully")
 
         print("-" * 60)
@@ -636,6 +793,7 @@ class WorkflowEngine:
 
     def _save_checkpoint(self, guide_file: str, spec: str) -> None:
         """Save current state to checkpoint file."""
+        validated_path = _validate_path_within_base(self.checkpoint_file)
         checkpoint = Checkpoint(
             guide_file=guide_file,
             spec=spec,
@@ -644,7 +802,8 @@ class WorkflowEngine:
             step_outputs=self.state.step_outputs,
             timestamp=datetime.now().isoformat()
         )
-        checkpoint.save(self.checkpoint_file)
+        checkpoint.save(validated_path)
+        self.audit.log("checkpoint_saved", path=validated_path)
         if self.config.verbose:
             print(f"  Checkpoint saved: {self.checkpoint_file}")
 
@@ -731,9 +890,10 @@ class GuideChain:
             # Set up checkpoint file for this guide
             checkpoint_file = None
             if self.checkpoint_dir:
-                os.makedirs(self.checkpoint_dir, exist_ok=True)
+                validated_dir = _validate_path_within_base(self.checkpoint_dir)
+                os.makedirs(validated_dir, exist_ok=True)
                 checkpoint_file = os.path.join(
-                    self.checkpoint_dir,
+                    validated_dir,
                     f"checkpoint_{idx}_{os.path.basename(guide_file)}.json"
                 )
 
@@ -765,9 +925,14 @@ class GuideChain:
             # Accumulate output for next guide
             cumulative_context += f"\n\n--- Output from {guide_file} ---\n{output}"
 
+        # Scan combined output for secrets before writing
+        secret_warnings = OutputScanner.scan(cumulative_context)
+        for warning in secret_warnings:
+            logger.warning(warning)
+
         # Write final combined output
         self.chain_output = cumulative_context
-        final_output_file = self.config.output_file
+        final_output_file = _validate_path_within_base(self.config.output_file)
         with open(final_output_file, "w") as f:
             f.write(cumulative_context)
 
