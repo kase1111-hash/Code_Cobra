@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated recommended model lineup to current-generation Ollama models:
+  - Model A (Creative): `qwen2.5-coder:7b` → `qwen3-coder:30b` (MoE, 3.3B active params, 256K context)
+  - Model B (Analyst): `deepseek-coder-v2:16b` → `deepseek-r1:14b` (chain-of-thought reasoning)
+  - Model C (Adversary): `codestral:22b` → `devstral:24b` (agentic successor to Codestral)
+- Dev config now uses lightweight `qwen3:8b` for all three roles
+- RAM guidance raised from 8GB+ to 16GB+ (24GB+ for the full recommended lineup)
+
 ## [1.0.2] - 2026-02-20
 
 ### Security Hardening

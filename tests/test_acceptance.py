@@ -294,7 +294,7 @@ class TestEnvironmentConfiguration(unittest.TestCase):
         try:
             config = Config.from_env()
             self.assertEqual(config.ollama_api, "http://localhost:11434/api/generate")
-            self.assertEqual(config.model_a, "qwen2.5-coder:7b")
+            self.assertEqual(config.model_a, "qwen3-coder:30b")
         finally:
             # Restore env vars
             for key, val in env_backup.items():

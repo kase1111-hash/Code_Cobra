@@ -64,9 +64,9 @@ from autonomous_ensemble import Config
 
 config = Config(
     ollama_api="http://localhost:11434/api/generate",
-    model_a="qwen2.5-coder:7b",
-    model_b="deepseek-coder-v2:16b",
-    model_c="codestral:22b",
+    model_a="qwen3-coder:30b",
+    model_b="deepseek-r1:14b",
+    model_c="devstral:24b",
     temp_creative=0.8,
     temp_analytical=0.3,
     temp_adversarial=0.7,
@@ -85,9 +85,9 @@ config = Config.from_json("config.json")
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `ollama_api` | str | `http://localhost:11434/api/generate` | Ollama API endpoint |
-| `model_a` | str | `qwen2.5-coder:7b` | Creative model |
-| `model_b` | str | `deepseek-coder-v2:16b` | Analytical model |
-| `model_c` | str | `codestral:22b` | Adversarial model |
+| `model_a` | str | `qwen3-coder:30b` | Creative model |
+| `model_b` | str | `deepseek-r1:14b` | Analytical model |
+| `model_c` | str | `devstral:24b` | Adversarial model |
 | `temp_creative` | float | 0.8 | Model A temperature |
 | `temp_analytical` | float | 0.3 | Model B temperature |
 | `temp_adversarial` | float | 0.7 | Model C temperature |
@@ -365,9 +365,9 @@ except RuntimeError as e:
 ```json
 {
   "ollama_api": "http://localhost:11434/api/generate",
-  "model_a": "qwen2.5-coder:7b",
-  "model_b": "deepseek-coder-v2:16b",
-  "model_c": "codestral:22b",
+  "model_a": "qwen3-coder:30b",
+  "model_b": "deepseek-r1:14b",
+  "model_c": "devstral:24b",
   "temp_creative": 0.8,
   "temp_analytical": 0.3,
   "temp_adversarial": 0.7,

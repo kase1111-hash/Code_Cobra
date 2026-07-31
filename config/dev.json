@@ -1,8 +1,8 @@
 {
   "ollama_api": "http://localhost:11434/api/generate",
-  "model_a": "qwen2.5-coder:7b",
-  "model_b": "qwen2.5-coder:7b",
-  "model_c": "qwen2.5-coder:7b",
+  "model_a": "qwen3:8b",
+  "model_b": "qwen3:8b",
+  "model_c": "qwen3:8b",
   "temp_creative": 0.8,
   "temp_analytical": 0.3,
   "temp_adversarial": 0.7,

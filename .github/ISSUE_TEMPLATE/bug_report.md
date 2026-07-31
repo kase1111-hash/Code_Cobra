@@ -31,7 +31,7 @@ What actually happened instead.
 - **Python version**: [e.g., 3.11.0]
 - **Code Cobra version**: [e.g., 1.0.0]
 - **Ollama version**: [e.g., 0.1.20]
-- **Models used**: [e.g., qwen2.5-coder:7b, deepseek-coder-v2:16b]
+- **Models used**: [e.g., qwen3-coder:30b, deepseek-r1:14b]
 
 ## Configuration
 

@@ -132,9 +132,9 @@ class AuditLogger:
 class Config:
     """Configuration for the autonomous ensemble system."""
     ollama_api: str = "http://localhost:11434/api/generate"
-    model_a: str = "qwen2.5-coder:7b"      # Creative model
-    model_b: str = "deepseek-coder-v2:16b"  # Analytical model
-    model_c: str = "codestral:22b"          # Adversarial model
+    model_a: str = "qwen3-coder:30b"  # Creative model
+    model_b: str = "deepseek-r1:14b"  # Analytical model
+    model_c: str = "devstral:24b"     # Adversarial model
     temp_creative: float = 0.8
     temp_analytical: float = 0.3
     temp_adversarial: float = 0.7

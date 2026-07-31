@@ -30,9 +30,9 @@ class TestConfig(unittest.TestCase):
         """Test that Config has correct default values."""
         config = Config()
         self.assertEqual(config.ollama_api, "http://localhost:11434/api/generate")
-        self.assertEqual(config.model_a, "qwen2.5-coder:7b")
-        self.assertEqual(config.model_b, "deepseek-coder-v2:16b")
-        self.assertEqual(config.model_c, "codestral:22b")
+        self.assertEqual(config.model_a, "qwen3-coder:30b")
+        self.assertEqual(config.model_b, "deepseek-r1:14b")
+        self.assertEqual(config.model_c, "devstral:24b")
         self.assertEqual(config.temp_creative, 0.8)
         self.assertEqual(config.temp_analytical, 0.3)
         self.assertEqual(config.temp_adversarial, 0.7)
@@ -56,7 +56,7 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(config.max_tokens, 4000)
             self.assertTrue(config.verbose)
             # Defaults should remain
-            self.assertEqual(config.model_b, "deepseek-coder-v2:16b")
+            self.assertEqual(config.model_b, "deepseek-r1:14b")
 
         os.unlink(f.name)
 
