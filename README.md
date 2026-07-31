@@ -11,7 +11,7 @@ A **multi-agent AI coding system** for autonomous code generation and security h
 
 - Python 3.8+
 - [Ollama](https://ollama.ai) installed and running locally
-- Sufficient RAM for your chosen models (8GB+ recommended)
+- Sufficient RAM for your chosen models (16GB+ recommended; 24GB+ for the full recommended lineup)
 
 ### Installation
 
@@ -25,9 +25,9 @@ cd Code_Cobra
 source venv/bin/activate
 
 # Pull recommended models
-ollama pull qwen2.5-coder:7b
-ollama pull deepseek-coder-v2:16b
-ollama pull codestral:22b
+ollama pull qwen3-coder:30b
+ollama pull deepseek-r1:14b
+ollama pull devstral:24b
 ```
 
 ### Basic Usage
@@ -116,9 +116,9 @@ Step {integer}: {description}
 | **Model C** | Adversarial | 0.7 (medium) | Security vulnerability scanning, exploit identification |
 
 **Recommended Models (Ollama):**
-- Model A: `qwen2.5-coder:7b`
-- Model B: `deepseek-coder-v2:16b`
-- Model C: `codestral:22b`
+- Model A: `qwen3-coder:30b`
+- Model B: `deepseek-r1:14b`
+- Model C: `devstral:24b`
 
 ### 3.3 Iteration Controller
 

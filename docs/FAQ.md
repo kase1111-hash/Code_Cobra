@@ -7,9 +7,9 @@ Code Cobra is an autonomous multi-agent AI coding system that uses three special
 
 ### What LLMs does it support?
 Code Cobra works with any Ollama-compatible model. Recommended models:
-- **Model A (Creative)**: `qwen2.5-coder:7b`
-- **Model B (Analyst)**: `deepseek-coder-v2:16b`
-- **Model C (Adversary)**: `codestral:22b`
+- **Model A (Creative)**: `qwen3-coder:30b`
+- **Model B (Analyst)**: `deepseek-r1:14b`
+- **Model C (Adversary)**: `devstral:24b`
 
 ### Is an internet connection required?
 No. Code Cobra runs entirely locally using Ollama. No external API calls are made.
@@ -17,7 +17,7 @@ No. Code Cobra runs entirely locally using Ollama. No external API calls are mad
 ### What are the system requirements?
 - Python 3.8+
 - Ollama installed and running
-- Sufficient RAM for your chosen models (8GB+ recommended)
+- Sufficient RAM for your chosen models (16GB+ recommended; 24GB+ for the full recommended lineup)
 - GPU optional but recommended for faster inference
 
 ## Installation
@@ -33,9 +33,9 @@ source venv/bin/activate
 ### How do I install Ollama?
 Visit [ollama.ai](https://ollama.ai) and follow installation instructions for your OS. Then pull required models:
 ```bash
-ollama pull qwen2.5-coder:7b
-ollama pull deepseek-coder-v2:16b
-ollama pull codestral:22b
+ollama pull qwen3-coder:30b
+ollama pull deepseek-r1:14b
+ollama pull devstral:24b
 ```
 
 ### Can I use Docker?
@@ -94,9 +94,9 @@ python autonomous_ensemble.py --spec "..." --resume progress.json
 Create a JSON config file:
 ```json
 {
-  "model_a": "llama2:13b",
-  "model_b": "codellama:7b",
-  "model_c": "mistral:7b"
+  "model_a": "qwen3:14b",
+  "model_b": "qwen3:8b",
+  "model_c": "devstral:24b"
 }
 ```
 Run with: `--config my_config.json`
@@ -135,7 +135,7 @@ ollama pull <model-name>
 - Use more specific guide steps
 
 ### Process is too slow
-- Use smaller models (7B instead of 22B)
+- Use smaller models (e.g. `qwen3:8b` instead of `qwen3-coder:30b`)
 - Reduce `max_iterations`
 - Use GPU acceleration with Ollama
 - Reduce the number of guide steps
