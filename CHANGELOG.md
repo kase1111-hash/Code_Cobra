@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Model C (Adversary): `codestral:22b` → `devstral:24b` (agentic successor to Codestral)
 - Dev config now uses lightweight `qwen3:8b` for all three roles
 - RAM guidance raised from 8GB+ to 16GB+ (24GB+ for the full recommended lineup)
+- CI matrix now tests Python 3.9–3.13 (3.8 dropped: pinned `bandit` needs ≥3.9)
+
+### Fixed
+- Environment variables (`OLLAMA_API`, `MODEL_A/B/C`, `OUTPUT_FILE`, etc.) and `.env` files were ignored by the CLI; `main()` now loads config via `Config.from_env()`. This also fixes the Docker Compose setup, which could not reach the `ollama` service
+- `--output` and `--verbose` no longer overwrite values from `--config` or the environment unless passed explicitly
+- flake8 and mypy errors that kept CI red on `main`
 
 ## [1.0.2] - 2026-02-20
 
