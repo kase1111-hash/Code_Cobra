@@ -321,5 +321,51 @@ class TestHooksIntegration(unittest.TestCase):
         self.assertTrue(mock_query.called)
 
 
+class TestCLIConfigResolution(unittest.TestCase):
+    """main() must honor environment variables and only override config with explicit flags."""
+
+    def _run_main(self, argv, env):
+        import autonomous_ensemble
+        with patch.object(sys, "argv", ["autonomous_ensemble.py"] + argv), \
+                patch.dict(os.environ, env, clear=False), \
+                patch("autonomous_ensemble.WorkflowEngine") as engine_cls:
+            engine_cls.return_value.run.return_value = ""
+            rc = autonomous_ensemble.main()
+        self.assertEqual(rc, 0)
+        return engine_cls.call_args[0][0]
+
+    def test_env_vars_used_without_config_file(self):
+        """OLLAMA_API / MODEL_* / OUTPUT_FILE from the environment reach the engine."""
+        config = self._run_main(
+            ["--spec", "x", "--guide", "coding_guide.txt"],
+            {"OLLAMA_API": "http://ollama:11434/api/generate",
+             "MODEL_A": "env-model-a", "OUTPUT_FILE": "env_out.txt"},
+        )
+        self.assertEqual(config.ollama_api, "http://ollama:11434/api/generate")
+        self.assertEqual(config.model_a, "env-model-a")
+        self.assertEqual(config.output_file, "env_out.txt")
+
+    def test_output_flag_overrides_env(self):
+        """An explicit --output wins over OUTPUT_FILE."""
+        config = self._run_main(
+            ["--spec", "x", "--guide", "coding_guide.txt", "--output", "cli_out.txt"],
+            {"OUTPUT_FILE": "env_out.txt"},
+        )
+        self.assertEqual(config.output_file, "cli_out.txt")
+
+    def test_config_file_output_not_clobbered(self):
+        """output_file from a --config JSON file is kept when --output is absent."""
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"output_file": "json_out.txt", "verbose": True}, f)
+        try:
+            config = self._run_main(
+                ["--spec", "x", "--guide", "coding_guide.txt", "--config", f.name], {}
+            )
+        finally:
+            os.unlink(f.name)
+        self.assertEqual(config.output_file, "json_out.txt")
+        self.assertTrue(config.verbose)
+
+
 if __name__ == "__main__":
     unittest.main()

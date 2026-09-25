@@ -19,7 +19,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 import requests
 
@@ -114,7 +114,7 @@ class AuditLogger:
     def __init__(self, path: str = "audit.jsonl"):
         self.path = path
 
-    def log(self, event: str, **kwargs) -> None:
+    def log(self, event: str, **kwargs: Any) -> None:
         """Append a structured event to the audit log."""
         entry = {"timestamp": datetime.now().isoformat(), "event": event, **kwargs}
         try:
@@ -380,7 +380,7 @@ class Checkpoint:
             ValueError: If required fields are missing or invalid.
         """
         required_fields = ["guide_file", "spec", "completed_steps",
-                          "cumulative_output", "step_outputs", "timestamp"]
+                           "cumulative_output", "step_outputs", "timestamp"]
         missing = [f for f in required_fields if f not in data]
         if missing:
             raise ValueError(
@@ -476,7 +476,7 @@ class OllamaClient:
             ConnectionError: If unable to connect after retries.
             RuntimeError: If server returns non-retryable error.
         """
-        last_error = None
+        last_error: Optional[Exception] = None
         for attempt in range(self.retry_count):
             try:
                 response = requests.post(
@@ -485,7 +485,7 @@ class OllamaClient:
                     timeout=120
                 )
                 response.raise_for_status()
-                return response.json().get("response", "")
+                return str(response.json().get("response", ""))
             except requests.exceptions.ConnectionError as e:
                 last_error = e
                 logger.warning(f"Connection error (attempt {attempt + 1}/{self.retry_count}): {e}")
@@ -577,7 +577,7 @@ class ModelPipeline:
             max_tokens=self.config.max_tokens
         )
         if self.config.verbose:
-            print(f"  [Model A] Generating creative draft...")
+            print("  [Model A] Generating creative draft...")
         return self.client.query(request)
 
     def _error_correction(self, context: StepContext) -> str:
@@ -793,6 +793,8 @@ class WorkflowEngine:
 
     def _save_checkpoint(self, guide_file: str, spec: str) -> None:
         """Save current state to checkpoint file."""
+        if not self.checkpoint_file:
+            return
         validated_path = _validate_path_within_base(self.checkpoint_file)
         checkpoint = Checkpoint(
             guide_file=guide_file,
@@ -984,8 +986,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--output",
-        default="final_output.txt",
-        help="Output file path (default: final_output.txt)"
+        help="Output file path (default: final_output.txt, or OUTPUT_FILE)"
     )
 
     parser.add_argument(
@@ -1039,11 +1040,13 @@ def main() -> int:
     if args.config:
         config = Config.from_json(args.config)
     else:
-        config = Config()
+        config = Config.from_env()
 
-    # Apply CLI overrides
-    config.output_file = args.output
-    config.verbose = args.verbose
+    # Apply CLI overrides (only when explicitly given)
+    if args.output:
+        config.output_file = args.output
+    if args.verbose:
+        config.verbose = True
 
     try:
         # Guide Chaining mode
